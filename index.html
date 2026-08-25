@@ -109,6 +109,11 @@ function showBanner(msg) {
   el.style.display = msg ? "block" : "none";
 }
 
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g,
+    ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
 function driveThumbs(cell) {
   if (!cell) return [];
   return cell.split(/[\s,]+/).filter(Boolean).map(u => {
@@ -124,9 +129,9 @@ function subCard(row) {
                 `onerror="this.outerHTML='<a href=&quot;${src}&quot; target=&quot;_blank&quot;>첨부 파일 열기</a>'"></a>`)
     .join("");
   const type = row["제출 유형"] || "답사 기록";
-  const badge = type === "답사 기록" ? "" : `<span class="badge">${type}</span>`;
-  return `<div class="sub-card"><b>${row["팀"] || "?"}</b>${badge}` +
-         `<div>${(row["내용"] || "").replace(/</g, "&lt;")}</div>${photos}</div>`;
+  const badge = type === "답사 기록" ? "" : `<span class="badge">${esc(type)}</span>`;
+  return `<div class="sub-card"><b>${esc(row["팀"] || "?")}</b>${badge}` +
+         `<div>${esc(row["내용"] || "")}</div>${photos}</div>`;
 }
 
 function buildPoiPopup(poi) {
@@ -151,7 +156,7 @@ function attachSubmissions(rows) {
         radius: 7, color: "#fff", weight: 2,
         fillColor: courseColor("etc"), fillOpacity: 0.95
       }).addTo(state.dynamicLayer)
-        .bindPopup(`<b>${row["기타 장소명"] || "직접 입력 장소"}</b>` + subCard(row));
+        .bindPopup(`<b>${esc(row["기타 장소명"] || "직접 입력 장소")}</b>` + subCard(row));
     } else {
       unmatched.push(row);
     }
@@ -180,8 +185,8 @@ function renderUnmatched(rows) {
   if (!rows.length) { el.style.display = "none"; return; }
   el.style.display = "block";
   el.innerHTML = `<b>위치 미확정 제출 ${rows.length}건</b> (운영자가 시트에서 좌표를 채우면 지도에 표시됩니다)` +
-    rows.map(r => `<div class="sub-card"><b>${r["팀"] || "?"}</b> ${r["답사지"] || ""} ${r["기타 장소명"] || ""}` +
-      `<div>${(r["내용"] || "").replace(/</g, "&lt;")}</div></div>`).join("");
+    rows.map(r => `<div class="sub-card"><b>${esc(r["팀"] || "?")}</b> ${esc(r["답사지"] || "")} ${esc(r["기타 장소명"] || "")}` +
+      `<div>${esc(r["내용"] || "")}</div></div>`).join("");
 }
 
 function loadSubmissions() {
