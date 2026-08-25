@@ -16,12 +16,13 @@
     padding: 6px 12px; border-radius: 16px; font-size: 13px; font-weight: bold; }
   #topbar select { font-size: 12px; padding: 4px; border-radius: 4px; border: 0; max-width: 28vw; }
   #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+  .leaflet-top.leaflet-left { margin-top: 84px; }
   #legend { position: fixed; bottom: 12px; left: 12px; z-index: 1100;
     background: rgba(255,255,255,.95); border-radius: 8px; padding: 8px 10px;
     font-size: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.3); max-width: 70vw; }
   #legend label { display: block; cursor: pointer; margin: 2px 0; }
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
-  #banner { position: fixed; top: 48px; left: 0; right: 0; z-index: 1100;
+  #banner { position: fixed; top: 84px; left: 0; right: 0; z-index: 1100;
     background: #c0392b; color: #fff; text-align: center; padding: 6px;
     font-size: 13px; display: none; }
   .leaflet-popup-content { font-size: 13px; max-width: 78vw; }
@@ -135,7 +136,7 @@ function subCard(row) {
   const photos = driveThumbs(row["사진"])
     .map(src => `<a href="${src.replace("&sz=w400", "&sz=w1600")}" target="_blank" rel="noopener">` +
                 `<img src="${src}" loading="lazy" alt="제출 사진" ` +
-                `onerror="this.outerHTML='<a href=&quot;${src}&quot; target=&quot;_blank&quot;>첨부 파일 열기</a>'"></a>`)
+                `onerror="this.outerHTML='<a href=&quot;${src}&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;>첨부 파일 열기</a>'"></a>`)
     .join("");
   const type = row["제출 유형"] || "답사 기록";
   const badge = type === "답사 기록" ? "" : `<span class="badge">${esc(type)}</span>`;
@@ -199,7 +200,8 @@ function renderUnmatched(rows) {
 }
 
 function loadSubmissions() {
-  const test = new URLSearchParams(location.search).get("data");
+  const test0 = new URLSearchParams(location.search).get("data");
+  const test = test0 && /^https?:/i.test(test0) ? null : test0;
   const url = test || CONFIG.csvUrl;
   if (url.startsWith("PASTE_")) { showBanner("CONFIG.csvUrl이 아직 설정되지 않았습니다."); return; }
   Papa.parse(url, {
@@ -217,12 +219,14 @@ function loadSubmissions() {
 function fillTeamFilter() {
   const sel = document.getElementById("teamFilter");
   const current = sel.value;
-  const teams = [...new Set(state.allRows.map(r => (r["팀"] || "").trim()).filter(Boolean))].sort();
+  const teams = [...new Set(state.allRows.map(r => (r["팀"] || "").trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
   sel.innerHTML = `<option value="">전체 팀</option>` +
     teams.map(t => `<option${t === current ? " selected" : ""}>${esc(t)}</option>`).join("");
 }
 
 function applyFilters() {
+  if (!state.allRows) return;
   const team = document.getElementById("teamFilter").value;
   const type = document.getElementById("typeFilter").value;
   attachSubmissions(state.allRows.filter(r =>
@@ -234,8 +238,13 @@ document.getElementById("typeFilter").addEventListener("change", applyFilters);
 
 async function boot() {
   initMap();
-  state.poiData = await (await fetch("poi.json")).json();
-  renderPois();
+  try {
+    state.poiData = await (await fetch("poi.json")).json();
+    renderPois();
+  } catch (e) {
+    showBanner("답사지 정보를 불러오지 못했습니다. 새로고침 해주세요.");
+    return;
+  }
   loadSubmissions();
   setInterval(loadSubmissions, CONFIG.refreshMs);
 }
