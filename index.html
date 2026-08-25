@@ -103,10 +103,108 @@ function renderLegend() {
   }));
 }
 
+function showBanner(msg) {
+  const el = document.getElementById("banner");
+  el.textContent = msg;
+  el.style.display = msg ? "block" : "none";
+}
+
+function driveThumbs(cell) {
+  if (!cell) return [];
+  return cell.split(/[\s,]+/).filter(Boolean).map(u => {
+    const m = u.match(/[-\w]{25,}/);
+    return m ? `https://drive.google.com/thumbnail?id=${m[0]}&sz=w400` : null;
+  }).filter(Boolean);
+}
+
+function subCard(row) {
+  const photos = driveThumbs(row["사진"])
+    .map(src => `<a href="${src.replace("&sz=w400", "&sz=w1600")}" target="_blank" rel="noopener">` +
+                `<img src="${src}" loading="lazy" alt="제출 사진" ` +
+                `onerror="this.outerHTML='<a href=&quot;${src}&quot; target=&quot;_blank&quot;>첨부 파일 열기</a>'"></a>`)
+    .join("");
+  const type = row["제출 유형"] || "답사 기록";
+  const badge = type === "답사 기록" ? "" : `<span class="badge">${type}</span>`;
+  return `<div class="sub-card"><b>${row["팀"] || "?"}</b>${badge}` +
+         `<div>${(row["내용"] || "").replace(/</g, "&lt;")}</div>${photos}</div>`;
+}
+
+function buildPoiPopup(poi) {
+  const subs = state.subsByPoi[poi.name] || [];
+  const head = `<b>${poi.name}</b><br>${poi.desc}`;
+  if (!subs.length) return head + `<div class="sub-card">아직 올라온 자료가 없어요.</div>`;
+  return head + `<div style="max-height:45vh;overflow-y:auto">${subs.map(subCard).join("")}</div>`;
+}
+
+function attachSubmissions(rows) {
+  state.subsByPoi = {};
+  if (state.dynamicLayer) state.map.removeLayer(state.dynamicLayer);
+  state.dynamicLayer = L.layerGroup().addTo(state.map);
+  const unmatched = [];
+  for (const row of rows) {
+    const site = (row["답사지"] || "").trim();
+    const lat = parseFloat(row["위도"]), lng = parseFloat(row["경도"]);
+    if (state.poiById[site]) {
+      (state.subsByPoi[site] = state.subsByPoi[site] || []).push(row);
+    } else if (!isNaN(lat) && !isNaN(lng)) {
+      L.circleMarker([lat, lng], {
+        radius: 7, color: "#fff", weight: 2,
+        fillColor: courseColor("etc"), fillOpacity: 0.95
+      }).addTo(state.dynamicLayer)
+        .bindPopup(`<b>${row["기타 장소명"] || "직접 입력 장소"}</b>` + subCard(row));
+    } else {
+      unmatched.push(row);
+    }
+  }
+  for (const p of state.poiData.pois) {
+    state.markers[p.id].bindPopup(buildPoiPopup(p));
+    const subs = state.subsByPoi[p.name] || [];
+    state.markers[p.id].setRadius(subs.length > 0 ? Math.min(8 + subs.length, 16) : 8);
+    const hasMission = subs.some(r => (r["제출 유형"] || "").startsWith("미션"));
+    state.markers[p.id].setStyle({ color: hasMission ? "#f39c12" : "#fff", weight: hasMission ? 3 : 2 });
+  }
+  renderUnmatched(unmatched);
+}
+
+function renderUnmatched(rows) {
+  let el = document.getElementById("unmatched");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "unmatched";
+    el.style.cssText = "position:fixed;bottom:12px;right:12px;z-index:1100;" +
+      "background:rgba(255,255,255,.95);border-radius:8px;padding:8px 10px;" +
+      "font-size:12px;max-width:60vw;max-height:30vh;overflow-y:auto;" +
+      "box-shadow:0 1px 4px rgba(0,0,0,.3)";
+    document.body.appendChild(el);
+  }
+  if (!rows.length) { el.style.display = "none"; return; }
+  el.style.display = "block";
+  el.innerHTML = `<b>위치 미확정 제출 ${rows.length}건</b> (운영자가 시트에서 좌표를 채우면 지도에 표시됩니다)` +
+    rows.map(r => `<div class="sub-card"><b>${r["팀"] || "?"}</b> ${r["답사지"] || ""} ${r["기타 장소명"] || ""}` +
+      `<div>${(r["내용"] || "").replace(/</g, "&lt;")}</div></div>`).join("");
+}
+
+function loadSubmissions() {
+  const test = new URLSearchParams(location.search).get("data");
+  const url = test || CONFIG.csvUrl;
+  if (url.startsWith("PASTE_")) { showBanner("CONFIG.csvUrl이 아직 설정되지 않았습니다."); return; }
+  Papa.parse(url, {
+    download: true, header: true, skipEmptyLines: true,
+    complete: res => {
+      showBanner("");
+      state.allRows = res.data;
+      attachSubmissions(state.allRows);
+    },
+    error: () => showBanner("자료를 불러오지 못했습니다. 잠시 후 자동으로 다시 시도합니다.")
+  });
+}
+
 async function boot() {
   initMap();
   state.poiData = await (await fetch("poi.json")).json();
   renderPois();
+  loadSubmissions();
+  setInterval(loadSubmissions, CONFIG.refreshMs);
 }
 boot();
 </script>
