@@ -14,6 +14,7 @@
   #topbar h1 { font-size: 15px; margin: 0; flex: 1 1 auto; }
   #submitBtn { background: #f39c12; color: #fff; text-decoration: none;
     padding: 6px 12px; border-radius: 16px; font-size: 13px; font-weight: bold; }
+  #topbar select { font-size: 12px; padding: 4px; border-radius: 4px; border: 0; max-width: 28vw; }
   #map { position: absolute; top: 0; bottom: 0; width: 100%; }
   #legend { position: fixed; bottom: 12px; left: 12px; z-index: 1100;
     background: rgba(255,255,255,.95); border-radius: 8px; padding: 8px 10px;
@@ -33,6 +34,14 @@
 <body>
 <div id="topbar">
   <h1>전남대 국문과 답사 지도</h1>
+  <select id="teamFilter"><option value="">전체 팀</option></select>
+  <select id="typeFilter">
+    <option value="">전체 유형</option>
+    <option>답사 기록</option>
+    <option>미션: 말모이</option>
+    <option>미션: 구보</option>
+    <option>미션: 운영전 낭독</option>
+  </select>
   <a id="submitBtn" href="#" target="_blank" rel="noopener">+ 자료 올리기</a>
 </div>
 <div id="banner"></div>
@@ -198,11 +207,30 @@ function loadSubmissions() {
     complete: res => {
       showBanner("");
       state.allRows = res.data;
-      attachSubmissions(state.allRows);
+      fillTeamFilter();
+      applyFilters();
     },
     error: () => showBanner("자료를 불러오지 못했습니다. 잠시 후 자동으로 다시 시도합니다.")
   });
 }
+
+function fillTeamFilter() {
+  const sel = document.getElementById("teamFilter");
+  const current = sel.value;
+  const teams = [...new Set(state.allRows.map(r => (r["팀"] || "").trim()).filter(Boolean))].sort();
+  sel.innerHTML = `<option value="">전체 팀</option>` +
+    teams.map(t => `<option${t === current ? " selected" : ""}>${esc(t)}</option>`).join("");
+}
+
+function applyFilters() {
+  const team = document.getElementById("teamFilter").value;
+  const type = document.getElementById("typeFilter").value;
+  attachSubmissions(state.allRows.filter(r =>
+    (!team || (r["팀"] || "").trim() === team) &&
+    (!type || (r["제출 유형"] || "").trim() === type)));
+}
+document.getElementById("teamFilter").addEventListener("change", applyFilters);
+document.getElementById("typeFilter").addEventListener("change", applyFilters);
 
 async function boot() {
   initMap();
