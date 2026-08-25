@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>전남대 국문과 서울·경기 답사 지도</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  #topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1100;
+    background: #1a4d7c; color: #fff; padding: 8px 12px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #topbar h1 { font-size: 15px; margin: 0; flex: 1 1 auto; }
+  #submitBtn { background: #f39c12; color: #fff; text-decoration: none;
+    padding: 6px 12px; border-radius: 16px; font-size: 13px; font-weight: bold; }
+  #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+  #legend { position: fixed; bottom: 12px; left: 12px; z-index: 1100;
+    background: rgba(255,255,255,.95); border-radius: 8px; padding: 8px 10px;
+    font-size: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.3); max-width: 70vw; }
+  #legend label { display: block; cursor: pointer; margin: 2px 0; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+  #banner { position: fixed; top: 48px; left: 0; right: 0; z-index: 1100;
+    background: #c0392b; color: #fff; text-align: center; padding: 6px;
+    font-size: 13px; display: none; }
+  .leaflet-popup-content { font-size: 13px; max-width: 78vw; }
+  .sub-card { border-top: 1px solid #ddd; margin-top: 6px; padding-top: 6px; }
+  .sub-card .badge { display: inline-block; font-size: 11px; color: #fff;
+    background: #f39c12; border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
+  .sub-card img { max-width: 100%; border-radius: 4px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <h1>전남대 국문과 답사 지도</h1>
+  <a id="submitBtn" href="#" target="_blank" rel="noopener">+ 자료 올리기</a>
+</div>
+<div id="banner"></div>
+<div id="map"></div>
+<div id="legend"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+<script>
+"use strict";
+const CONFIG = {
+  csvUrl: "PASTE_PUBLISHED_CSV_URL",   // 구글 시트 "웹에 게시" CSV 주소로 교체
+  formUrl: "PASTE_GOOGLE_FORM_URL",    // 구글폼 주소로 교체
+  refreshMs: 5 * 60 * 1000,
+  center: [37.578, 126.977],
+  zoom: 13
+};
+
+const state = { poiData: null, poiById: {}, markers: {}, courseLayers: {}, map: null };
+
+function courseColor(courseId) {
+  const c = state.poiData.courses[courseId];
+  return c ? c.color : "#7f8c8d";
+}
+
+function initMap() {
+  state.map = L.map("map", { zoomControl: true }).setView(CONFIG.center, CONFIG.zoom);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(state.map);
+  document.getElementById("submitBtn").href = CONFIG.formUrl;
+}
+
+function renderPois() {
+  const byCourse = {};
+  for (const p of state.poiData.pois) {
+    state.poiById[p.name] = p;
+    const layer = state.courseLayers[p.course] ||
+      (state.courseLayers[p.course] = L.layerGroup().addTo(state.map));
+    const m = L.circleMarker([p.lat, p.lng], {
+      radius: 8, color: "#fff", weight: 2,
+      fillColor: courseColor(p.course), fillOpacity: 0.95
+    }).addTo(layer);
+    m.bindPopup(`<b>${p.name}</b><br>${p.desc}`);
+    state.markers[p.id] = m;
+    if (p.order > 0) (byCourse[p.course] = byCourse[p.course] || []).push(p);
+  }
+  for (const [cid, list] of Object.entries(byCourse)) {
+    list.sort((a, b) => a.order - b.order);
+    L.polyline(list.map(p => [p.lat, p.lng]), {
+      color: courseColor(cid), weight: 3, opacity: 0.5, dashArray: "6 6"
+    }).addTo(state.courseLayers[cid]);
+  }
+  renderLegend();
+}
+
+function renderLegend() {
+  const el = document.getElementById("legend");
+  el.innerHTML = Object.entries(state.poiData.courses)
+    .filter(([cid]) => cid !== "etc")
+    .map(([cid, c]) =>
+      `<label><input type="checkbox" data-course="${cid}" checked>` +
+      `<span class="dot" style="background:${c.color}"></span>${c.name}</label>`).join("");
+  el.querySelectorAll("input").forEach(cb => cb.addEventListener("change", () => {
+    const layer = state.courseLayers[cb.dataset.course];
+    if (!layer) return;
+    cb.checked ? layer.addTo(state.map) : state.map.removeLayer(layer);
+  }));
+}
+
+async function boot() {
+  initMap();
+  state.poiData = await (await fetch("poi.json")).json();
+  renderPois();
+}
+boot();
+</script>
+</body>
+</html>
