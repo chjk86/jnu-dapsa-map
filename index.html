@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>전남대 국문과 서울·경기 답사 지도</title>
+<title>전남대 국문과 서울·수원 답사 지도</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   * { box-sizing: border-box; }
@@ -14,6 +14,8 @@
   #topbar h1 { font-size: 15px; margin: 0; flex: 1 1 auto; }
   #submitBtn { background: #f39c12; color: #fff; text-decoration: none;
     padding: 6px 12px; border-radius: 16px; font-size: 13px; font-weight: bold; }
+  #guideBtn { background: #fff; color: #1a4d7c; border: 0; border-radius: 16px;
+    padding: 6px 12px; font-size: 13px; font-weight: bold; cursor: pointer; }
   #topbar select { font-size: 12px; padding: 4px; border-radius: 4px; border: 0; max-width: 28vw; }
   #map { position: absolute; top: 0; bottom: 0; width: 100%; }
   .leaflet-top.leaflet-left { margin-top: 84px; }
@@ -27,27 +29,128 @@
     font-size: 13px; display: none; }
   .leaflet-popup-content { font-size: 13px; max-width: 78vw; }
   .sub-card { border-top: 1px solid #ddd; margin-top: 6px; padding-top: 6px; }
-  .sub-card .badge { display: inline-block; font-size: 11px; color: #fff;
-    background: #f39c12; border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
   .sub-card img { max-width: 100%; border-radius: 4px; margin-top: 4px; }
+  .popup-upload { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: bold; color: #1a4d7c; }
+
+  /* 안내(자료집) 패널 */
+  #guide { position: fixed; inset: 0; z-index: 1200; background: rgba(0,0,0,.45);
+    display: none; align-items: flex-end; justify-content: center; }
+  #guide.open { display: flex; }
+  #guideBox { background: #fff; width: 100%; max-width: 560px; max-height: 84vh;
+    border-radius: 14px 14px 0 0; display: flex; flex-direction: column; }
+  #guideHead { display: flex; align-items: center; padding: 10px 14px 0; }
+  #guideHead b { flex: 1; font-size: 15px; color: #1a4d7c; }
+  #guideClose { border: 0; background: none; font-size: 20px; cursor: pointer; color: #888; padding: 2px 6px; }
+  #guideTabs { display: flex; border-bottom: 1px solid #ddd; margin-top: 6px; }
+  #guideTabs button { flex: 1; padding: 10px 2px; border: 0; background: none;
+    font-size: 13px; cursor: pointer; color: #555; }
+  #guideTabs button.on { color: #1a4d7c; font-weight: bold; border-bottom: 2px solid #1a4d7c; }
+  #guideBody { padding: 12px 16px 18px; overflow-y: auto; font-size: 13.5px; line-height: 1.55; }
+  .gtab { display: none; }
+  .gtab.on { display: block; }
+  .gstep { display: flex; gap: 9px; margin: 9px 0; align-items: flex-start; }
+  .gnum { background: #1a4d7c; color: #fff; border-radius: 50%; width: 22px; height: 22px;
+    flex: 0 0 22px; text-align: center; line-height: 22px; font-size: 12px; font-weight: bold; }
+  .gcta { display: block; text-align: center; background: #f39c12; color: #fff; font-weight: bold;
+    border-radius: 20px; padding: 10px; margin: 12px 0 2px; text-decoration: none; }
+  .gnote { font-size: 12.5px; color: #666; margin-top: 8px; }
+  table.sched { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 6px 0 12px; }
+  .sched th, .sched td { border: 1px solid #ddd; padding: 4px 6px; text-align: left; vertical-align: top; }
+  .sched th { background: #eef3f8; }
+  .gtab h3 { font-size: 13.5px; margin: 12px 0 4px; color: #1a4d7c; }
+  .course-item { margin: 8px 0; }
 </style>
 </head>
 <body>
 <div id="topbar">
   <h1>전남대 국문과 답사 지도</h1>
   <select id="teamFilter"><option value="">전체 팀</option></select>
-  <select id="typeFilter">
-    <option value="">전체 유형</option>
-    <option>답사 기록</option>
-    <option>미션: 말모이</option>
-    <option>미션: 구보</option>
-    <option>미션: 운영전 낭독</option>
-  </select>
+  <button id="guideBtn" type="button">📖 안내</button>
   <a id="submitBtn" href="#" target="_blank" rel="noopener">+ 자료 올리기</a>
 </div>
 <div id="banner"></div>
 <div id="map"></div>
 <div id="legend"></div>
+
+<div id="guide">
+  <div id="guideBox">
+    <div id="guideHead"><b>답사 안내</b><button id="guideClose" type="button" aria-label="닫기">✕</button></div>
+    <div id="guideTabs">
+      <button data-tab="howto" class="on" type="button">사용법</button>
+      <button data-tab="sched" type="button">일정</button>
+      <button data-tab="course" type="button">코스</button>
+      <button data-tab="safety" type="button">안전·연락</button>
+    </div>
+    <div id="guideBody">
+
+      <div class="gtab on" data-tab="howto">
+        <div class="gstep"><span class="gnum">1</span><div>지도의 <b>동그라미(답사지)</b>를 누르면 해설과 친구들이 올린 사진·글이 보여요. 점선은 오후 자율답사 추천 코스예요.</div></div>
+        <div class="gstep"><span class="gnum">2</span><div>현장에서 <b>[+ 자료 올리기]</b>를 눌러 사진과 한 줄 기록을 제출하세요. 팀과 답사지를 고르고 올리면 끝! (구글 로그인 필요)</div></div>
+        <div class="gstep"><span class="gnum">3</span><div>제출하면 <b>5분 안에</b> 지도에 나타나요. 상단에서 팀을 골라 우리 팀 자료만 볼 수도 있어요.</div></div>
+        <a class="gcta" id="guideCta" href="#" target="_blank" rel="noopener">📷 자료 올리기 시작</a>
+        <div class="gnote">답사가 끝난 뒤에도 계속 올릴 수 있어요. 못 올린 사진·후기는 돌아와서 천천히 올려 주세요.</div>
+      </div>
+
+      <div class="gtab" data-tab="sched">
+        <h3>1일차 — 11/5(목) 서울권</h3>
+        <table class="sched">
+          <tr><th>08:30</th><td>전남대 대운동장 앞 출발 (버스 3대)</td></tr>
+          <tr><th>10:30</th><td>정안알밤휴게소 (아침)</td></tr>
+          <tr><th>13:00</th><td>점심 식사</td></tr>
+          <tr><th>14:30~17:30</th><td><b>국립중앙박물관</b> — 조별·자유 관람</td></tr>
+          <tr><th>18:30</th><td>도봉숲속마을 체크인, 저녁</td></tr>
+        </table>
+        <h3>2일차 — 11/6(금) 서울권</h3>
+        <table class="sched">
+          <tr><th>09:45~13:00</th><td><b>경복궁 · 국립고궁박물관 · 국립민속박물관</b> — 민속박물관 특강 후 자율 관람</td></tr>
+          <tr><th>13:00~16:30</th><td><b>전공 테마별 자율답사</b> (코스 탭 참고, 점심 조별 자율)</td></tr>
+          <tr><th>16:30</th><td>집결·승차 — 고전·현대: 누상주차장 / 국어학: 정독도서관 주차장</td></tr>
+          <tr><th>17:30</th><td>저녁(봄이보리밥 노원점) 후 숙소</td></tr>
+        </table>
+        <h3>3일차 — 11/7(토) 수원권·복귀</h3>
+        <table class="sched">
+          <tr><th>10:00</th><td>숙소 출발</td></tr>
+          <tr><th>11:00</th><td>수원 남문통닭 (점심)</td></tr>
+          <tr><th>12:10~15:00</th><td><b>화성행궁 · 수원화성 성곽 걷기</b> — 조별·자유</td></tr>
+          <tr><th>18:00</th><td>전남대 도착, 해산</td></tr>
+        </table>
+      </div>
+
+      <div class="gtab" data-tab="course">
+        <p>2일차 오후(13:00~16:30) 자율답사 추천 코스예요. 팀별로 하나를 골라 걷고, 코스를 바꾸거나 섞어도 돼요. 지도의 같은 색 점선을 따라가면 됩니다.</p>
+        <div class="course-item"><span class="dot" style="background:#c0392b"></span><b>고전문학 — 안평대군 코스</b><br>
+          수성궁 터·수성동 계곡(『운영전』의 무대) → 부암동 무계원(『몽유도원도』) <span style="color:#888">(석파정은 유료·선택)</span><br>
+          <span style="color:#888">종료 후 누상주차장 집결</span></div>
+        <div class="course-item"><span class="dot" style="background:#2980b9"></span><b>현대문학 — 서촌 트랙</b><br>
+          이상의 집 → 보안여관 → 윤동주 하숙집 터 → 수성동 계곡 → 노천명 가옥·대오서점 (여유 시 청운문학도서관·윤동주문학관)<br>
+          <span style="color:#888">종료 후 누상주차장 집결</span></div>
+        <div class="course-item"><span class="dot" style="background:#8e44ad"></span><b>현대문학 — 성북동 트랙</b><br>
+          심우장 → 수연산방 → 길상사 — 이동 거리가 길어 시간 여유를 꼭 확인하세요.<br>
+          <span style="color:#888">종료 후 정독도서관 주차장 집결</span></div>
+        <div class="course-item"><span class="dot" style="background:#27ae60"></span><b>국어학 — 말모이·한글 수호 코스</b><br>
+          세종이야기 → 조선어학회 한말글 수호 기념탑 → 한글가온길·주시경 마당 → 한글학회 → 정동(배재학당·독립신문사 터) → 화동 조선어학회 회관 터<br>
+          <span style="color:#888">종료 후 정독도서관 주차장 집결</span></div>
+      </div>
+
+      <div class="gtab" data-tab="safety">
+        <h3>집결 시각·장소</h3>
+        <p>2일차 자율답사 종료 <b>16:30</b> — 고전·현대문학: <b>누상주차장</b> / 국어학: <b>정독도서관 주차장</b>. 늦을 것 같으면 반드시 미리 연락하세요.</p>
+        <h3>비상 연락</h3>
+        <table class="sched">
+          <tr><th>인솔 교수</th><td>______________</td></tr>
+          <tr><th>학과 사무실</th><td>______________</td></tr>
+          <tr><th>학생회(답사 운영)</th><td>______________</td></tr>
+        </table>
+        <h3>안전 수칙</h3>
+        <p>· 자율답사는 반드시 팀 단위로 함께 이동해요.<br>
+        · 궁궐·박물관 관람 예절을 지키고, 차도·골목에서는 이동에 주의하세요.<br>
+        · 위급 상황은 119/112에 먼저 신고한 뒤 인솔자에게 알려 주세요.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script>
@@ -62,6 +165,10 @@ const CONFIG = {
 
 const state = { poiData: null, poiById: {}, markers: {}, courseLayers: {}, map: null };
 
+function formLink() {
+  return CONFIG.formUrl.startsWith("PASTE_") ? "" : CONFIG.formUrl;
+}
+
 function courseColor(courseId) {
   const c = state.poiData.courses[courseId];
   return c ? c.color : "#7f8c8d";
@@ -74,6 +181,7 @@ function initMap() {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(state.map);
   document.getElementById("submitBtn").href = CONFIG.formUrl;
+  document.getElementById("guideCta").href = CONFIG.formUrl;
 }
 
 function renderPois() {
@@ -138,15 +246,15 @@ function subCard(row) {
                 `<img src="${src}" loading="lazy" alt="제출 사진" ` +
                 `onerror="this.outerHTML='<a href=&quot;${src}&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;>첨부 파일 열기</a>'"></a>`)
     .join("");
-  const type = row["제출 유형"] || "답사 기록";
-  const badge = type === "답사 기록" ? "" : `<span class="badge">${esc(type)}</span>`;
-  return `<div class="sub-card"><b>${esc(row["팀"] || "?")}</b>${badge}` +
+  return `<div class="sub-card"><b>${esc(row["팀"] || "?")}</b>` +
          `<div>${esc(row["내용"] || "")}</div>${photos}</div>`;
 }
 
 function buildPoiPopup(poi) {
   const subs = state.subsByPoi[poi.name] || [];
-  const head = `<b>${poi.name}</b><br>${poi.desc}`;
+  const upload = formLink() ?
+    `<br><a class="popup-upload" href="${formLink()}" target="_blank" rel="noopener">📷 이 장소 자료 올리기</a>` : "";
+  const head = `<b>${poi.name}</b><br>${poi.desc}${upload}`;
   if (!subs.length) return head + `<div class="sub-card">아직 올라온 자료가 없어요.</div>`;
   return head + `<div style="max-height:45vh;overflow-y:auto">${subs.map(subCard).join("")}</div>`;
 }
@@ -175,8 +283,6 @@ function attachSubmissions(rows) {
     state.markers[p.id].bindPopup(buildPoiPopup(p));
     const subs = state.subsByPoi[p.name] || [];
     state.markers[p.id].setRadius(subs.length > 0 ? Math.min(8 + subs.length, 16) : 8);
-    const hasMission = subs.some(r => (r["제출 유형"] || "").startsWith("미션"));
-    state.markers[p.id].setStyle({ color: hasMission ? "#f39c12" : "#fff", weight: hasMission ? 3 : 2 });
   }
   renderUnmatched(unmatched);
 }
@@ -228,16 +334,43 @@ function fillTeamFilter() {
 function applyFilters() {
   if (!state.allRows) return;
   const team = document.getElementById("teamFilter").value;
-  const type = document.getElementById("typeFilter").value;
   attachSubmissions(state.allRows.filter(r =>
-    (!team || (r["팀"] || "").trim() === team) &&
-    (!type || (r["제출 유형"] || "").trim() === type)));
+    (!team || (r["팀"] || "").trim() === team)));
 }
 document.getElementById("teamFilter").addEventListener("change", applyFilters);
-document.getElementById("typeFilter").addEventListener("change", applyFilters);
+
+function openGuide(tab) {
+  document.getElementById("guide").classList.add("open");
+  switchGuideTab(tab || "howto");
+}
+function closeGuide() {
+  document.getElementById("guide").classList.remove("open");
+}
+function switchGuideTab(tab) {
+  document.querySelectorAll("#guideTabs button").forEach(b =>
+    b.classList.toggle("on", b.dataset.tab === tab));
+  document.querySelectorAll(".gtab").forEach(d =>
+    d.classList.toggle("on", d.dataset.tab === tab));
+}
+function initGuide() {
+  document.getElementById("guideBtn").addEventListener("click", () => openGuide("howto"));
+  document.getElementById("guideClose").addEventListener("click", closeGuide);
+  document.getElementById("guide").addEventListener("click", e => {
+    if (e.target.id === "guide") closeGuide();
+  });
+  document.querySelectorAll("#guideTabs button").forEach(b =>
+    b.addEventListener("click", () => switchGuideTab(b.dataset.tab)));
+  let seen = null;
+  try { seen = localStorage.getItem("dapsa_guide_seen"); } catch (e) {}
+  if (!seen) {
+    openGuide("howto");
+    try { localStorage.setItem("dapsa_guide_seen", "1"); } catch (e) {}
+  }
+}
 
 async function boot() {
   initMap();
+  initGuide();
   try {
     state.poiData = await (await fetch("poi.json")).json();
     renderPois();
