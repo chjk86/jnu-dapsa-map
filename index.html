@@ -85,7 +85,7 @@
 
       <div class="gtab on" data-tab="howto">
         <div class="gstep"><span class="gnum">1</span><div>지도의 <b>동그라미(답사지)</b>를 누르면 해설과 친구들이 올린 사진·글이 보여요. 점선은 오후 자율답사 추천 코스예요.</div></div>
-        <div class="gstep"><span class="gnum">2</span><div>현장에서 <b>[+ 자료 올리기]</b>를 눌러 사진과 한 줄 기록을 제출하세요. 팀과 답사지를 고르고 올리면 끝! (구글 로그인 필요)</div></div>
+        <div class="gstep"><span class="gnum">2</span><div>현장에서 <b>[+ 자료 올리기]</b>를 눌러 사진과 한 줄 기록을 제출하세요. 목록에 없는 곳은 <b>'기타(직접 입력)'</b>로 장소 이름만 적으면 돼요 — 어디든 자유예요! (구글 로그인 필요)</div></div>
         <div class="gstep"><span class="gnum">3</span><div>제출하면 <b>5분 안에</b> 지도에 나타나요. 상단에서 팀을 골라 우리 팀 자료만 볼 수도 있어요.</div></div>
         <a class="gcta" id="guideCta" href="#" target="_blank" rel="noopener">📷 자료 올리기 시작</a>
         <div class="gnote">답사가 끝난 뒤에도 계속 올릴 수 있어요. 못 올린 사진·후기는 돌아와서 천천히 올려 주세요.</div>
@@ -117,7 +117,7 @@
       </div>
 
       <div class="gtab" data-tab="course">
-        <p>2일차 오후(13:00~16:30) 자율답사 추천 코스예요. 팀별로 하나를 골라 걷고, 코스를 바꾸거나 섞어도 돼요. 지도의 같은 색 점선을 따라가면 됩니다.</p>
+        <p><b>2일차 오후(13:00~16:30) 자율답사는 조별로 답사지를 자유롭게 정합니다.</b> 아래는 참고용 추천 코스예요 — 그대로 걸어도, 바꿔도, 전혀 다른 곳을 가도 좋아요. 어디를 가든 [+ 자료 올리기]로 기록만 남겨 주세요.</p>
         <div class="course-item"><span class="dot" style="background:#c0392b"></span><b>고전문학 — 안평대군 코스</b><br>
           수성궁 터·수성동 계곡(『운영전』의 무대) → 부암동 무계원(『몽유도원도』) <span style="color:#888">(석파정은 유료·선택)</span><br>
           <span style="color:#888">종료 후 누상주차장 집결</span></div>
@@ -300,7 +300,7 @@ function renderUnmatched(rows) {
   }
   if (!rows.length) { el.style.display = "none"; return; }
   el.style.display = "block";
-  el.innerHTML = `<b>위치 미확정 제출 ${rows.length}건</b> (운영자가 시트에서 좌표를 채우면 지도에 표시됩니다)` +
+  el.innerHTML = `<b>새로 올라온 자유 답사지 ${rows.length}건</b> (운영자가 위치를 찍으면 지도에 핀으로 나타나요)` +
     rows.map(r => `<div class="sub-card"><b>${esc(r["팀"] || "?")}</b> ${esc(r["답사지"] || "")} ${esc(r["기타 장소명"] || "")}` +
       `<div>${esc(r["내용"] || "")}</div></div>`).join("");
 }
