@@ -478,7 +478,8 @@ function initGuide() {
     b.addEventListener("click", () => switchGuideTab(b.dataset.tab)));
   let seen = null;
   try { seen = localStorage.getItem("dapsa_guide_seen"); } catch (e) {}
-  if (!seen) {
+  const forceGuide = new URLSearchParams(location.search).has("guide");
+  if (!seen || forceGuide) {
     openGuide("howto");
     try { localStorage.setItem("dapsa_guide_seen", "1"); } catch (e) {}
   }
