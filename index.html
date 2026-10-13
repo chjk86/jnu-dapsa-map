@@ -27,6 +27,12 @@
   #banner { position: fixed; top: 84px; left: 0; right: 0; z-index: 1100;
     background: #c0392b; color: #fff; text-align: center; padding: 6px;
     font-size: 13px; display: none; }
+  #notice { position: fixed; top: 84px; left: 0; right: 0; z-index: 1090;
+    background: #fff3d6; color: #633806; border-bottom: 1px solid #efc26a;
+    padding: 7px 10px; font-size: 13px; display: none; align-items: center; gap: 8px; }
+  #notice span { flex: 1; }
+  #notice button { border: 0; background: none; cursor: pointer; color: #866a2f; font-size: 15px; }
+  .notice-item { border-bottom: 0.5px solid #ddd; padding: 7px 0; font-size: 13px; }
   .leaflet-popup-content { font-size: 13px; max-width: 78vw; }
   .sub-card { border-top: 1px solid #ddd; margin-top: 6px; padding-top: 6px; }
   .sub-card img { max-width: 100%; border-radius: 4px; margin-top: 4px; }
@@ -69,6 +75,7 @@
   <a id="submitBtn" href="#" target="_blank" rel="noopener">+ 자료 올리기</a>
 </div>
 <div id="banner"></div>
+<div id="notice"><span id="noticeText"></span><button id="noticeClose" type="button" aria-label="공지 닫기">✕</button></div>
 <div id="map"></div>
 <div id="legend"></div>
 
@@ -78,8 +85,9 @@
     <div id="guideTabs">
       <button data-tab="howto" class="on" type="button">사용법</button>
       <button data-tab="sched" type="button">일정</button>
+      <button data-tab="notice" type="button">공지</button>
       <button data-tab="course" type="button">코스</button>
-      <button data-tab="safety" type="button">안전·연락</button>
+      <button data-tab="safety" type="button">안전</button>
     </div>
     <div id="guideBody">
 
@@ -94,47 +102,49 @@
       <div class="gtab" data-tab="sched">
         <h3>1일차 — 11/5(목) 서울권</h3>
         <table class="sched">
-          <tr><th>08:30</th><td>전남대 대운동장 앞 출발 (버스 3대)</td></tr>
-          <tr><th>10:30</th><td>정안알밤휴게소 (아침)</td></tr>
-          <tr><th>13:00</th><td>점심 식사</td></tr>
-          <tr><th>14:30~17:30</th><td><b>국립중앙박물관</b> — 조별·자유 관람</td></tr>
+          <tr><th>09:00</th><td>전남대 대운동장 앞 집결·출발 (버스 3대)</td></tr>
+          <tr><th>11:00~11:30</th><td>정안알밤휴게소 정차 (아침)</td></tr>
+          <tr><th>13:30~14:30</th><td>점심 (경복궁식당, 소불고기전골)</td></tr>
+          <tr><th>15:00~17:30</th><td><b>국립민속박물관</b> — 특강(약 1시간 15분) 후 자율 관람</td></tr>
           <tr><th>18:30</th><td>도봉숲속마을 체크인, 저녁</td></tr>
         </table>
         <h3>2일차 — 11/6(금) 서울권</h3>
         <table class="sched">
-          <tr><th>09:45~13:00</th><td><b>경복궁 · 국립고궁박물관 · 국립민속박물관</b> — 민속박물관 특강 후 자율 관람</td></tr>
-          <tr><th>13:00~16:30</th><td><b>전공 테마별 자율답사</b> (코스 탭 참고, 점심 조별 자율)</td></tr>
-          <tr><th>16:30</th><td>집결·승차 — 고전·현대: 누상주차장 / 국어학: 정독도서관 주차장</td></tr>
-          <tr><th>17:30</th><td>저녁(봄이보리밥 노원점) 후 숙소</td></tr>
+          <tr><th>08:30</th><td>숙소 출발</td></tr>
+          <tr><th>10:00~12:30</th><td><b>국립중앙박물관</b> — 조별·자유 관람</td></tr>
+          <tr><th>13:00~14:00</th><td>점심 (월가갈비 서울시청본점)</td></tr>
+          <tr><th>14:00~15:30</th><td><b>경복궁 · 국립고궁박물관</b> — 조별·자유 관람</td></tr>
+          <tr><th>15:30~17:30</th><td><b>권역별 자율답사</b> (코스 탭 참고)</td></tr>
+          <tr><th>17:30</th><td><b>경복궁 주차장 집결</b>(사직로 161) → 저녁(봄이보리밥 노원점) → 숙소</td></tr>
         </table>
         <h3>3일차 — 11/7(토) 수원권·복귀</h3>
         <table class="sched">
           <tr><th>10:00</th><td>숙소 출발</td></tr>
-          <tr><th>11:00</th><td>수원 남문통닭 (점심)</td></tr>
+          <tr><th>11:00~12:00</th><td>점심 (수원 남문통닭)</td></tr>
           <tr><th>12:10~15:00</th><td><b>화성행궁 · 수원화성 성곽 걷기</b> — 조별·자유</td></tr>
-          <tr><th>18:00</th><td>전남대 도착, 해산</td></tr>
+          <tr><th>18:00</th><td>전남대 도착, 개별 복귀</td></tr>
         </table>
+        <h3>버스 탑승 안내</h3>
+        <div id="busInfo"><p class="gnote">호차별 탑승 시간·위치는 확정되는 대로 여기에 올라와요.</p></div>
+      </div>
+
+      <div class="gtab" data-tab="notice">
+        <div id="noticeList"><p class="gnote">아직 공지가 없습니다.</p></div>
       </div>
 
       <div class="gtab" data-tab="course">
-        <p><b>2일차 오후(13:00~16:30) 자율답사는 조별로 답사지를 자유롭게 정합니다.</b> 아래는 참고용 추천 코스예요 — 그대로 걸어도, 바꿔도, 전혀 다른 곳을 가도 좋아요. 어디를 가든 [+ 자료 올리기]로 기록만 남겨 주세요.</p>
-        <div class="course-item"><span class="dot" style="background:#c0392b"></span><b>고전문학 — 안평대군 코스</b><br>
-          수성궁 터·수성동 계곡(『운영전』의 무대) → 부암동 무계원(『몽유도원도』) <span style="color:#888">(석파정은 유료·선택)</span><br>
-          <span style="color:#888">종료 후 누상주차장 집결</span></div>
-        <div class="course-item"><span class="dot" style="background:#2980b9"></span><b>현대문학 — 서촌 트랙</b><br>
-          이상의 집 → 보안여관 → 윤동주 하숙집 터 → 수성동 계곡 → 노천명 가옥·대오서점 (여유 시 청운문학도서관·윤동주문학관)<br>
-          <span style="color:#888">종료 후 누상주차장 집결</span></div>
-        <div class="course-item"><span class="dot" style="background:#8e44ad"></span><b>현대문학 — 성북동 트랙</b><br>
-          심우장 → 수연산방 → 길상사 — 이동 거리가 길어 시간 여유를 꼭 확인하세요.<br>
-          <span style="color:#888">종료 후 정독도서관 주차장 집결</span></div>
-        <div class="course-item"><span class="dot" style="background:#27ae60"></span><b>국어학 — 말모이·한글 수호 코스</b><br>
-          세종이야기 → 조선어학회 한말글 수호 기념탑 → 한글가온길·주시경 마당 → 한글학회 → 정동(배재학당·독립신문사 터) → 화동 조선어학회 회관 터<br>
-          <span style="color:#888">종료 후 정독도서관 주차장 집결</span></div>
+        <p><b>2일차 15:30~17:30 자율답사는 조별로 권역 하나를 골라 그 안에서 자유롭게 동선을 짭니다.</b> 아래 장소들은 참고예요 — 권역 안이라면 어디를 가든 좋아요. 어디서든 [+ 자료 올리기]로 기록을 남겨 주세요. 종료 후 <b>17:30 경복궁 주차장</b>(사직로 161) 집결.</p>
+        <div class="course-item"><span class="dot" style="background:#2980b9"></span><b>1권역 — 서촌 일대</b><br>
+          이상·윤동주·현진건·노천명 등 현대문학 작가들의 활동 배경: 보안여관(《시인부락》) → 이상의 집 → 효자동 거리(&lt;효자동 이발사&gt;) → 윤동주 하숙집 터 → 노천명 가옥·대오서점 → 수성동 계곡(『운영전』의 배경)</div>
+        <div class="course-item"><span class="dot" style="background:#c0392b"></span><b>2권역 — 창덕궁·종묘 일대</b><br>
+          창덕궁(&lt;인현왕후전&gt;·&lt;한중록&gt; 궁중문학의 배경) → 종묘(종묘제례악) → 종묘광장공원(정도전 &lt;신도가&gt; 시비)</div>
+        <div class="course-item"><span class="dot" style="background:#27ae60"></span><b>3권역 — 한글가온길·덕수궁 일대</b><br>
+          세종이야기(한글 창제와 현대적 활용) → 조선어학회 기념탑 → 한글가온길·주시경 마당 → 한글학회(사전 편찬의 역사) → 독립신문사 터 → 배재학당 → 덕수궁(&lt;계축일기&gt;의 배경)</div>
       </div>
 
       <div class="gtab" data-tab="safety">
         <h3>집결 시각·장소</h3>
-        <p>2일차 자율답사 종료 <b>16:30</b> — 고전·현대문학: <b>누상주차장</b> / 국어학: <b>정독도서관 주차장</b>. 늦을 것 같으면 반드시 미리 연락하세요.</p>
+        <p>2일차 자율답사 종료 후 <b>17:30 경복궁 주차장</b>(서울 종로구 사직로 161) 집결·승차. 호차별 탑승 시간·위치가 바뀌면 일정 탭의 '버스 탑승 안내'와 공지로 알려드려요. 늦을 것 같으면 반드시 미리 연락하세요.</p>
         <h3>비상 연락</h3>
         <table class="sched">
           <tr><th>인솔 교수</th><td>______________</td></tr>
@@ -156,8 +166,9 @@
 <script>
 "use strict";
 const CONFIG = {
-  csvUrl: "PASTE_PUBLISHED_CSV_URL",   // 구글 시트 "웹에 게시" CSV 주소로 교체
-  formUrl: "PASTE_GOOGLE_FORM_URL",    // 구글폼 주소로 교체
+  csvUrl: "PASTE_PUBLISHED_CSV_URL",     // 구글 시트 "웹에 게시" CSV 주소로 교체
+  adminCsvUrl: "PASTE_ADMIN_CSV_URL",    // 공지버스 탭 "웹에 게시" CSV 주소로 교체 (조교 관리용, 선택)
+  formUrl: "PASTE_GOOGLE_FORM_URL",      // 구글폼 주소로 교체
   refreshMs: 5 * 60 * 1000,
   center: [37.578, 126.977],
   zoom: 13
@@ -306,9 +317,7 @@ function renderUnmatched(rows) {
 }
 
 function loadSubmissions() {
-  const test0 = new URLSearchParams(location.search).get("data");
-  const test = test0 && /^https?:/i.test(test0) ? null : test0;
-  const url = test || CONFIG.csvUrl;
+  const url = testParam("data") || CONFIG.csvUrl;
   if (url.startsWith("PASTE_")) { showBanner("CONFIG.csvUrl이 아직 설정되지 않았습니다."); return; }
   Papa.parse(url, {
     download: true, header: true, skipEmptyLines: true,
@@ -320,6 +329,61 @@ function loadSubmissions() {
     },
     error: () => showBanner("자료를 불러오지 못했습니다. 잠시 후 자동으로 다시 시도합니다.")
   });
+}
+
+function testParam(name) {
+  const v = new URLSearchParams(location.search).get(name);
+  return v && /^https?:/i.test(v) ? null : v;
+}
+
+function loadAdmin() {
+  const url = testParam("admin") || CONFIG.adminCsvUrl;
+  if (url.startsWith("PASTE_")) return;
+  Papa.parse(url, {
+    download: true, header: true, skipEmptyLines: true,
+    complete: res => {
+      const rows = res.data;
+      renderNotices(rows.filter(r => (r["유형"] || "").trim() === "공지"));
+      renderBus(rows.filter(r => (r["유형"] || "").trim() === "버스"));
+    },
+    error: () => {}
+  });
+}
+
+function renderNotices(list) {
+  const tab = document.getElementById("noticeList");
+  if (!list.length) {
+    tab.innerHTML = `<p class="gnote">아직 공지가 없습니다.</p>`;
+    return;
+  }
+  tab.innerHTML = list.slice().reverse().map(n =>
+    `<div class="notice-item"><b>${esc(n["일시"] || "")}</b>` +
+    `<div>${esc(n["내용"] || "")}${(n["장소"] || "").trim() ? " — " + esc(n["장소"]) : ""}</div></div>`).join("");
+  const latest = list[list.length - 1];
+  if (!(latest["내용"] || "").trim()) return;
+  const key = (latest["일시"] || "") + "|" + (latest["내용"] || "");
+  let dismissed = null;
+  try { dismissed = localStorage.getItem("dapsa_notice_dismissed"); } catch (e) {}
+  const bar = document.getElementById("notice");
+  if (dismissed === key) { bar.style.display = "none"; return; }
+  document.getElementById("noticeText").textContent =
+    "📢 " + ((latest["일시"] || "").trim() ? latest["일시"] + " · " : "") + latest["내용"];
+  bar.style.display = "flex";
+  document.getElementById("noticeClose").onclick = () => {
+    bar.style.display = "none";
+    try { localStorage.setItem("dapsa_notice_dismissed", key); } catch (e) {}
+  };
+}
+
+function renderBus(list) {
+  const el = document.getElementById("busInfo");
+  if (!list.length) {
+    el.innerHTML = `<p class="gnote">호차별 탑승 시간·위치는 확정되는 대로 여기에 올라와요.</p>`;
+    return;
+  }
+  el.innerHTML = `<table class="sched">` + list.map(r =>
+    `<tr><th>${esc(r["일시"] || "")}</th><td><b>${esc(r["장소"] || "")}</b>` +
+    `${(r["내용"] || "").trim() ? " — " + esc(r["내용"]) : ""}</td></tr>`).join("") + `</table>`;
 }
 
 function fillTeamFilter() {
@@ -379,7 +443,8 @@ async function boot() {
     return;
   }
   loadSubmissions();
-  setInterval(loadSubmissions, CONFIG.refreshMs);
+  loadAdmin();
+  setInterval(() => { loadSubmissions(); loadAdmin(); }, CONFIG.refreshMs);
 }
 boot();
 </script>
