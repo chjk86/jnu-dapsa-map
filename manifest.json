@@ -1,0 +1,13 @@
+{
+  "name": "2026 전대 국문 답사지도",
+  "short_name": "답사지도",
+  "description": "전남대학교 국어국문학과 서울·수원 답사 지도",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1a4d7c",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
