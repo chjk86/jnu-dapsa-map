@@ -35,6 +35,8 @@
   .notice-item { border-bottom: 0.5px solid #ddd; padding: 7px 0; font-size: 13px; }
   .leaflet-popup-content { font-size: 13px; max-width: 78vw; }
   .sub-card { border-top: 1px solid #ddd; margin-top: 6px; padding-top: 6px; }
+  .sub-card .badge { display: inline-block; font-size: 11px; color: #fff;
+    background: #27ae60; border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
   .sub-card img { max-width: 100%; border-radius: 4px; margin-top: 4px; }
   .popup-upload { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: bold; color: #1a4d7c; }
 
@@ -93,7 +95,7 @@
 
       <div class="gtab on" data-tab="howto">
         <div class="gstep"><span class="gnum">1</span><div>지도의 <b>동그라미(답사지)</b>를 누르면 해설과 친구들이 올린 사진·글이 보여요. 점선은 오후 자율답사 추천 코스예요.</div></div>
-        <div class="gstep"><span class="gnum">2</span><div>현장에서 <b>[+ 자료 올리기]</b>를 눌러 사진과 한 줄 기록을 제출하세요. 목록에 없는 곳은 <b>'기타(직접 입력)'</b>로 장소 이름만 적으면 돼요 — 어디든 자유예요! (구글 로그인 필요)</div></div>
+        <div class="gstep"><span class="gnum">2</span><div>현장에서 <b>[+ 자료 올리기]</b>를 눌러 사진과 한 줄 기록을 제출하세요. 목록에 없는 곳은 <b>'기타(직접 입력)'</b>로 장소 이름만 적으면 돼요 — 어디든 자유예요! (구글 로그인 필요) <b>'위치 허용'</b>을 누르고 현장에서 올리면 <span class="badge" style="background:#27ae60;color:#fff;border-radius:8px;padding:1px 6px;font-size:11px;">현장 인증 ✓</span> 배지가 붙어요.</div></div>
         <div class="gstep"><span class="gnum">3</span><div>제출하면 <b>5분 안에</b> 지도에 나타나요. 상단에서 팀을 골라 우리 팀 자료만 볼 수도 있어요.</div></div>
         <a class="gcta" id="guideCta" href="#" target="_blank" rel="noopener">📷 자료 올리기 시작</a>
         <div class="gnote">답사가 끝난 뒤에도 계속 올릴 수 있어요. 못 올린 사진·후기는 돌아와서 천천히 올려 주세요.</div>
@@ -166,18 +168,59 @@
 <script>
 "use strict";
 const CONFIG = {
-  csvUrl: "PASTE_PUBLISHED_CSV_URL",     // 구글 시트 "웹에 게시" CSV 주소로 교체
-  adminCsvUrl: "PASTE_ADMIN_CSV_URL",    // 공지버스 탭 "웹에 게시" CSV 주소로 교체 (조교 관리용, 선택)
-  formUrl: "PASTE_GOOGLE_FORM_URL",      // 구글폼 주소로 교체
+  csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSyFxWkv39h7iORBlo9FJkxwtVtj96JAkf1oJqtSeXl55ViYSbX_Co2tZ92BcdbizpxnS4yftkGwXil/pub?gid=299052492&single=true&output=csv",
+  adminCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSyFxWkv39h7iORBlo9FJkxwtVtj96JAkf1oJqtSeXl55ViYSbX_Co2tZ92BcdbizpxnS4yftkGwXil/pub?gid=1014766971&single=true&output=csv",
+  formUrl: "https://docs.google.com/forms/d/e/1FAIpQLSeMS8cNuJz6mO4ODR0IPlzok22lqqcgUwk6poNtW6nRZxvUrw/viewform",
+  formEntries: { site: "entry.182142127", location: "entry.806988756" },
+  badgeKm: 1,
   refreshMs: 5 * 60 * 1000,
   center: [37.578, 126.977],
   zoom: 13
 };
 
-const state = { poiData: null, poiById: {}, markers: {}, courseLayers: {}, map: null };
+const state = { poiData: null, poiById: {}, markers: {}, courseLayers: {}, map: null, pos: null };
 
-function formLink() {
-  return CONFIG.formUrl.startsWith("PASTE_") ? "" : CONFIG.formUrl;
+function initGeo() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.watchPosition(
+    p => { state.pos = { lat: p.coords.latitude, lng: p.coords.longitude }; },
+    () => {},
+    { enableHighAccuracy: true, maximumAge: 60000 });
+}
+
+function formLink(siteName) {
+  if (CONFIG.formUrl.startsWith("PASTE_")) return "";
+  const p = new URLSearchParams({ usp: "pp_url" });
+  if (siteName) p.set(CONFIG.formEntries.site, siteName);
+  if (state.pos) p.set(CONFIG.formEntries.location,
+    state.pos.lat.toFixed(6) + "," + state.pos.lng.toFixed(6));
+  return CONFIG.formUrl + "?" + p.toString();
+}
+
+function wireSubmitLink(el, getSite) {
+  el.addEventListener("click", () => {
+    const url = formLink(getSite ? getSite() : "");
+    if (url) el.href = url;
+  });
+}
+
+function distKm(a, b) {
+  const R = 6371, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+  const s = Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+function parseLoc(cell) {
+  const m = String(cell || "").match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+  return m ? { lat: parseFloat(m[1]), lng: parseFloat(m[2]) } : null;
+}
+
+function verifiedBadge(row, ref) {
+  const loc = parseLoc(row["위치"]);
+  if (!loc || !ref) return "";
+  return distKm(loc, ref) <= CONFIG.badgeKm ? `<span class="badge">현장 인증 ✓</span>` : "";
 }
 
 function courseColor(courseId) {
@@ -193,6 +236,8 @@ function initMap() {
   }).addTo(state.map);
   document.getElementById("submitBtn").href = CONFIG.formUrl;
   document.getElementById("guideCta").href = CONFIG.formUrl;
+  wireSubmitLink(document.getElementById("submitBtn"));
+  wireSubmitLink(document.getElementById("guideCta"));
 }
 
 function renderPois() {
@@ -251,23 +296,25 @@ function driveThumbs(cell) {
   }).filter(Boolean);
 }
 
-function subCard(row) {
+function subCard(row, ref) {
   const photos = driveThumbs(row["사진"])
     .map(src => `<a href="${src.replace("&sz=w400", "&sz=w1600")}" target="_blank" rel="noopener">` +
                 `<img src="${src}" loading="lazy" alt="제출 사진" ` +
                 `onerror="this.outerHTML='<a href=&quot;${src}&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;>첨부 파일 열기</a>'"></a>`)
     .join("");
-  return `<div class="sub-card"><b>${esc(row["팀"] || "?")}</b>` +
+  return `<div class="sub-card"><b>${esc(row["팀"] || "?")}</b>${verifiedBadge(row, ref)}` +
          `<div>${esc(row["내용"] || "")}</div>${photos}</div>`;
 }
 
 function buildPoiPopup(poi) {
   const subs = state.subsByPoi[poi.name] || [];
-  const upload = formLink() ?
-    `<br><a class="popup-upload" href="${formLink()}" target="_blank" rel="noopener">📷 이 장소 자료 올리기</a>` : "";
+  const url = formLink(poi.name);
+  const upload = url ?
+    `<br><a class="popup-upload" href="${url}" target="_blank" rel="noopener">📷 이 장소 자료 올리기</a>` : "";
   const head = `<b>${poi.name}</b><br>${poi.desc}${upload}`;
   if (!subs.length) return head + `<div class="sub-card">아직 올라온 자료가 없어요.</div>`;
-  return head + `<div style="max-height:45vh;overflow-y:auto">${subs.map(subCard).join("")}</div>`;
+  const ref = { lat: poi.lat, lng: poi.lng };
+  return head + `<div style="max-height:45vh;overflow-y:auto">${subs.map(r => subCard(r, ref)).join("")}</div>`;
 }
 
 function attachSubmissions(rows) {
@@ -285,7 +332,7 @@ function attachSubmissions(rows) {
         radius: 7, color: "#fff", weight: 2,
         fillColor: courseColor("etc"), fillOpacity: 0.95
       }).addTo(state.dynamicLayer)
-        .bindPopup(`<b>${esc(row["기타 장소명"] || "직접 입력 장소")}</b>` + subCard(row));
+        .bindPopup(`<b>${esc(row["기타 장소명"] || "직접 입력 장소")}</b>` + subCard(row, { lat, lng }));
     } else {
       unmatched.push(row);
     }
@@ -435,6 +482,7 @@ function initGuide() {
 async function boot() {
   initMap();
   initGuide();
+  initGeo();
   try {
     state.poiData = await (await fetch("poi.json")).json();
     renderPois();
