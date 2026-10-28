@@ -72,6 +72,13 @@
   .sched th { background: #eef3f8; }
   .gtab h3 { font-size: 13.5px; margin: 12px 0 4px; color: #1a4d7c; }
   .course-item { margin: 8px 0; }
+  #poiList details { border-bottom: 0.5px solid #e0e0e0; }
+  #poiList summary { padding: 9px 2px; cursor: pointer; font-weight: bold; list-style-position: inside; }
+  #poiList .poi-body { padding: 0 2px 12px; }
+  #poiList .poi-works { margin: 8px 0 0; padding: 7px 10px; background: #f4f7fa; border-radius: 6px; font-size: 12.5px; }
+  #poiList .poi-links a { display: inline-block; margin: 6px 8px 0 0; font-size: 12.5px; color: #1a4d7c; }
+  #poiList .poi-goto { display: inline-block; margin-top: 8px; font-size: 12.5px; font-weight: bold;
+    color: #fff; background: #1a4d7c; border: 0; border-radius: 14px; padding: 5px 12px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -94,6 +101,7 @@
       <button data-tab="sched" type="button">일정</button>
       <button data-tab="notice" type="button">공지</button>
       <button data-tab="course" type="button">코스</button>
+      <button data-tab="poilist" type="button">답사지</button>
       <button data-tab="safety" type="button">안전</button>
     </div>
     <div id="guideBody">
@@ -147,6 +155,11 @@
           창덕궁(&lt;인현왕후전&gt;·&lt;한중록&gt; 궁중문학의 배경) → 종묘(종묘제례악) → 종묘광장공원(정도전 &lt;신도가&gt; 시비)</div>
         <div class="course-item"><span class="dot" style="background:#27ae60"></span><b>3권역 — 한글가온길·덕수궁 일대</b><br>
           세종이야기(한글 창제와 현대적 활용) → 조선어학회 기념탑 → 한글가온길·주시경 마당 → 한글학회(사전 편찬의 역사) → 독립신문사 터 → 배재학당 → 덕수궁(&lt;계축일기&gt;의 배경)</div>
+      </div>
+
+      <div class="gtab" data-tab="poilist">
+        <p class="gnote" style="margin-top:0">답사지를 누르면 해설·관련 작품·참고 링크가 펼쳐져요. 가기 전에 읽어두면 현장이 다르게 보입니다.</p>
+        <div id="poiList"></div>
       </div>
 
       <div class="gtab" data-tab="safety">
@@ -266,6 +279,45 @@ function renderPois() {
     }).addTo(state.courseLayers[cid]);
   }
   renderLegend();
+  renderPoiList();
+}
+
+function renderPoiList() {
+  const el = document.getElementById("poiList");
+  const order = ["common", "zone1", "zone2", "zone3"];
+  el.innerHTML = order.map(cid => {
+    const c = state.poiData.courses[cid];
+    const pois = state.poiData.pois.filter(p => p.course === cid);
+    if (!pois.length) return "";
+    return `<h3><span class="dot" style="background:${c.color}"></span>${c.name}</h3>` +
+      pois.map(p => {
+        const works = p.works && p.works.length ?
+          `<div class="poi-works"><b>관련 작품</b><br>${p.works.map(esc).join("<br>")}</div>` : "";
+        const links = p.links && p.links.length ?
+          `<div class="poi-links">${p.links.map(l =>
+            `<a href="${l.u}" target="_blank" rel="noopener">🔗 ${esc(l.t)}</a>`).join("")}</div>` : "";
+        return `<details data-poi="${p.id}"><summary>${esc(p.name)}</summary>` +
+          `<div class="poi-body"><div>${esc(p.detail || p.desc)}</div>${works}${links}` +
+          `<button type="button" class="poi-goto" data-goto="${p.id}">📍 지도에서 보기</button></div></details>`;
+      }).join("");
+  }).join("");
+  el.querySelectorAll("[data-goto]").forEach(btn => btn.addEventListener("click", () => {
+    const p = state.poiData.pois.find(x => x.id === btn.dataset.goto);
+    if (!p) return;
+    closeGuide();
+    state.map.setView([p.lat, p.lng], 16);
+    state.markers[p.id].openPopup();
+  }));
+}
+
+function openPoiDetail(id) {
+  openGuide("poilist");
+  const d = document.querySelector(`#poiList details[data-poi="${id}"]`);
+  if (d) {
+    document.querySelectorAll("#poiList details[open]").forEach(x => { if (x !== d) x.open = false; });
+    d.open = true;
+    d.scrollIntoView({ block: "start" });
+  }
 }
 
 function renderLegend() {
@@ -316,7 +368,9 @@ function buildPoiPopup(poi) {
   const url = formLink(poi.name);
   const upload = url ?
     `<br><a class="popup-upload" href="${url}" target="_blank" rel="noopener">📷 이 장소 자료 올리기</a>` : "";
-  const head = `<b>${poi.name}</b><br>${poi.desc}${upload}`;
+  const detailLink = poi.detail ?
+    ` <a class="popup-upload" href="#" onclick="openPoiDetail('${poi.id}');return false">📖 자세한 해설</a>` : "";
+  const head = `<b>${poi.name}</b><br>${poi.desc}${upload}${detailLink}`;
   if (!subs.length) return head + `<div class="sub-card">아직 올라온 자료가 없어요.</div>`;
   const ref = { lat: poi.lat, lng: poi.lng };
   return head + `<div style="max-height:45vh;overflow-y:auto">${subs.map(r => subCard(r, ref)).join("")}</div>`;
