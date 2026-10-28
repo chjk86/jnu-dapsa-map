@@ -156,8 +156,9 @@
         <div class="course-item"><span class="dot" style="background:#27ae60"></span><b>3권역 — 한글가온길·덕수궁 일대</b><br>
           세종이야기(한글 창제와 현대적 활용) → 조선어학회 기념탑 → 한글가온길·주시경 마당 → 한글학회(사전 편찬의 역사) → 독립신문사 터 → 배재학당 → 덕수궁(&lt;계축일기&gt;의 배경)</div>
         <h3>조별 등록 코스</h3>
-        <p class="gnote">우리 조가 갈 코스를 직접 등록하면 지도에 주황색 경로로 표시돼요. 답사지 이름은 '답사지' 탭과 같게 쓰고 화살표(→)로 이어 주세요. 다시 등록하면 최신 코스로 바뀝니다.</p>
-        <a class="gcta" id="courseRegBtn" href="#" target="_blank" rel="noopener" style="display:none">✏️ 우리 조 코스 등록</a>
+        <p class="gnote">위 예시와 상관없이 <b>우리 조가 가고 싶은 코스를 자유롭게</b> 등록하면 지도에 주황색 경로로 표시돼요. 글로 쓰려면 장소 이름을 화살표(→)로 잇고(목록에 없는 장소도 OK), 더 쉽게는 <b>[지도에서 코스 찍기]</b>로 지도를 탭해서 만들 수 있어요. 다시 등록하면 최신 코스로 바뀝니다.</p>
+        <button type="button" class="gcta" id="courseDrawBtn" style="border:0;cursor:pointer;width:100%">🖊 지도에서 코스 찍기</button>
+        <a class="gcta" id="courseRegBtn" href="#" target="_blank" rel="noopener" style="display:none;background:#1a4d7c">✏️ 글로 직접 등록</a>
         <div id="teamCourses"><p class="gnote">아직 등록된 코스가 없어요.</p></div>
       </div>
 
@@ -194,9 +195,10 @@ const CONFIG = {
   adminCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSyFxWkv39h7iORBlo9FJkxwtVtj96JAkf1oJqtSeXl55ViYSbX_Co2tZ92BcdbizpxnS4yftkGwXil/pub?gid=1014766971&single=true&output=csv",
   formUrl: "https://docs.google.com/forms/d/e/1FAIpQLSeMS8cNuJz6mO4ODR0IPlzok22lqqcgUwk6poNtW6nRZxvUrw/viewform",
   formEntries: { site: "entry.182142127", location: "entry.806988756" },
-  teamCourseCsvUrl: "PASTE_TEAMCOURSE_CSV_URL",
-  teamCourseFormUrl: "PASTE_TEAMCOURSE_FORM_URL",
-  poiDocCsvUrl: "PASTE_POIDOC_CSV_URL",
+  teamCourseCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSyFxWkv39h7iORBlo9FJkxwtVtj96JAkf1oJqtSeXl55ViYSbX_Co2tZ92BcdbizpxnS4yftkGwXil/pub?gid=40973735&single=true&output=csv",
+  teamCourseFormUrl: "https://docs.google.com/forms/d/e/1FAIpQLScUqe3Oc2sa9_FH261_upzBIUykjLVXkf7rYWiy8rxpRm8KZg/viewform",
+  teamCourseEntries: { course: "entry.1851300878" },
+  poiDocCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSyFxWkv39h7iORBlo9FJkxwtVtj96JAkf1oJqtSeXl55ViYSbX_Co2tZ92BcdbizpxnS4yftkGwXil/pub?gid=1246048803&single=true&output=csv",
   badgeKm: 1,
   refreshMs: 5 * 60 * 1000,
   center: [37.578, 126.977],
@@ -511,7 +513,12 @@ function loadTeamCourses() {
         const text = (row["코스"] || "").trim();
         if (!team || !text) continue;
         const stops = text.split(/→|->|>/).map(s => s.trim()).filter(Boolean)
-          .map(tok => ({ tok, poi: matchPoi(tok) }));
+          .map(tok => {
+            const c = parseLoc(tok);
+            if (c) return { tok, label: "📍지도 지점", pt: [c.lat, c.lng] };
+            const poi = matchPoi(tok);
+            return poi ? { tok, label: poi.name, pt: [poi.lat, poi.lng] } : { tok, label: tok, pt: null };
+          });
         state.teamCourses[team] = { text, stops };
       }
       renderTeamCourses();
@@ -532,7 +539,7 @@ function renderTeamCourses() {
   el.innerHTML = teams.map(t => {
     const c = state.teamCourses[t];
     const route = c.stops.map(s =>
-      s.poi ? esc(s.tok) : `<span style="color:#b55;text-decoration:underline dotted" title="지도의 답사지와 이름이 달라 경로에서 빠져요">${esc(s.tok)}</span>`
+      s.pt ? esc(s.label) : `<span style="color:#b55;text-decoration:underline dotted" title="지도에서 위치를 모르는 장소라 경로선에서는 건너뛰어요">${esc(s.tok)}</span>`
     ).join(" → ");
     return `<div class="course-item"><b>${esc(t)}</b> ${route}<br>` +
       `<button type="button" class="poi-goto" data-team="${esc(t)}">📍 지도에 코스 표시</button></div>`;
@@ -546,19 +553,88 @@ function showTeamCourse(team, fit) {
   state.shownCourseTeam = null;
   const c = state.teamCourses[team];
   if (!c) return;
-  const pts = c.stops.filter(s => s.poi).map(s => [s.poi.lat, s.poi.lng]);
-  if (pts.length < 1) return;
+  const stops = c.stops.filter(s => s.pt);
+  if (stops.length < 1) return;
   state.shownCourseTeam = team;
   state.teamCourseLayer = L.layerGroup().addTo(state.map);
+  const pts = stops.map(s => s.pt);
   if (pts.length > 1) {
     L.polyline(pts, { color: "#e67e22", weight: 5, opacity: 0.8 }).addTo(state.teamCourseLayer);
   }
-  pts.forEach((pt, i) => {
-    L.marker(pt, { icon: L.divIcon({ className: "", iconSize: [22, 22],
+  stops.forEach((s, i) => {
+    L.marker(s.pt, { icon: L.divIcon({ className: "", iconSize: [22, 22],
       html: `<div style="background:#e67e22;color:#fff;border:2px solid #fff;border-radius:50%;width:22px;height:22px;text-align:center;line-height:18px;font-size:12px;font-weight:bold">${i + 1}</div>` })
-    }).addTo(state.teamCourseLayer).bindTooltip(`${team} 코스 ${i + 1}. ${c.stops.filter(s => s.poi)[i].poi.name}`);
+    }).addTo(state.teamCourseLayer).bindTooltip(`${team} 코스 ${i + 1}. ${s.label}`);
   });
   if (fit) state.map.fitBounds(L.latLngBounds(pts).pad(0.25));
+}
+
+const draw = { on: false, pts: [], layer: null, bar: null };
+
+function drawRefresh() {
+  if (draw.layer) state.map.removeLayer(draw.layer);
+  draw.layer = L.layerGroup().addTo(state.map);
+  if (draw.pts.length > 1) {
+    L.polyline(draw.pts.map(p => p.pt), { color: "#e67e22", weight: 4, dashArray: "4 6" }).addTo(draw.layer);
+  }
+  draw.pts.forEach((p, i) => {
+    L.marker(p.pt, { icon: L.divIcon({ className: "", iconSize: [22, 22],
+      html: `<div style="background:#e67e22;color:#fff;border:2px solid #fff;border-radius:50%;width:22px;height:22px;text-align:center;line-height:18px;font-size:12px;font-weight:bold">${i + 1}</div>` })
+    }).addTo(draw.layer);
+  });
+  const n = document.getElementById("drawCount");
+  if (n) n.textContent = `${draw.pts.length}개 지점`;
+}
+
+function drawClick(e) {
+  if (!draw.on) return;
+  let nearest = null, best = 0.12;
+  for (const p of state.poiData.pois) {
+    const d = distKm({ lat: e.latlng.lat, lng: e.latlng.lng }, { lat: p.lat, lng: p.lng });
+    if (d < best) { best = d; nearest = p; }
+  }
+  if (nearest) draw.pts.push({ tok: nearest.name, pt: [nearest.lat, nearest.lng] });
+  else draw.pts.push({ tok: e.latlng.lat.toFixed(5) + "," + e.latlng.lng.toFixed(5), pt: [e.latlng.lat, e.latlng.lng] });
+  drawRefresh();
+}
+
+function startDraw() {
+  if (draw.on) return;
+  draw.on = true; draw.pts = [];
+  closeGuide();
+  state.map.getContainer().style.cursor = "crosshair";
+  const bar = document.createElement("div");
+  bar.id = "drawBar";
+  bar.style.cssText = "position:fixed;bottom:66px;left:50%;transform:translateX(-50%);z-index:1300;" +
+    "background:#1a4d7c;color:#fff;border-radius:22px;padding:8px 12px;font-size:13px;" +
+    "display:flex;gap:8px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.4)";
+  bar.innerHTML = `<span id="drawCount">0개 지점</span>` +
+    `<button type="button" id="drawUndo" style="border:0;border-radius:12px;padding:4px 10px;cursor:pointer">↩ 되돌리기</button>` +
+    `<button type="button" id="drawDone" style="border:0;border-radius:12px;padding:4px 10px;cursor:pointer;background:#f39c12;color:#fff;font-weight:bold">✅ 완료</button>` +
+    `<button type="button" id="drawCancel" style="border:0;border-radius:12px;padding:4px 10px;cursor:pointer">✖</button>`;
+  document.body.appendChild(bar);
+  draw.bar = bar;
+  document.getElementById("drawUndo").addEventListener("click", () => { draw.pts.pop(); drawRefresh(); });
+  document.getElementById("drawCancel").addEventListener("click", () => endDraw());
+  document.getElementById("drawDone").addEventListener("click", () => {
+    if (!draw.pts.length) { endDraw(); return; }
+    const course = draw.pts.map(p => p.tok).join(" → ");
+    const url = CONFIG.teamCourseFormUrl + "?" +
+      new URLSearchParams({ usp: "pp_url", [CONFIG.teamCourseEntries.course]: course }).toString();
+    endDraw();
+    window.open(url, "_blank", "noopener");
+  });
+  state.map.on("click", drawClick);
+  alert("지도를 순서대로 탭해서 코스를 찍으세요.\n답사지 근처(120m)를 찍으면 그 답사지로 기록돼요.\n다 찍었으면 아래 [완료]를 누르세요 — 등록 폼이 열립니다.");
+}
+
+function endDraw() {
+  draw.on = false;
+  state.map.off("click", drawClick);
+  state.map.getContainer().style.cursor = "";
+  if (draw.layer) { state.map.removeLayer(draw.layer); draw.layer = null; }
+  if (draw.bar) { draw.bar.remove(); draw.bar = null; }
+  draw.pts = [];
 }
 
 function testParam(name) {
@@ -681,6 +757,7 @@ async function boot() {
     b.href = CONFIG.teamCourseFormUrl;
     b.style.display = "block";
   }
+  document.getElementById("courseDrawBtn").addEventListener("click", startDraw);
   loadSubmissions();
   loadAdmin();
   loadTeamCourses();
