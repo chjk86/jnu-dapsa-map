@@ -329,15 +329,21 @@ function attachSubmissions(rows) {
   const unmatched = [];
   for (const row of rows) {
     const site = (row["답사지"] || "").trim();
+    if (!site && !(row["팀"] || "").trim() && !(row["내용"] || "").trim()) continue;
     const lat = parseFloat(row["위도"]), lng = parseFloat(row["경도"]);
+    const opCoords = !isNaN(lat) && !isNaN(lng) ? { lat, lng } : null;
+    const gps = parseLoc(row["위치"]);
     if (state.poiById[site]) {
       (state.subsByPoi[site] = state.subsByPoi[site] || []).push(row);
-    } else if (!isNaN(lat) && !isNaN(lng)) {
-      L.circleMarker([lat, lng], {
+    } else if (opCoords || gps) {
+      const at = opCoords || gps;
+      const note = opCoords ? "" :
+        `<div style="font-size:11px;color:#888">제출 당시 위치 기준(임시 핀) — 운영자가 좌표를 입력하면 정확한 위치로 옮겨져요</div>`;
+      L.circleMarker([at.lat, at.lng], {
         radius: 7, color: "#fff", weight: 2,
         fillColor: courseColor("etc"), fillOpacity: 0.95
       }).addTo(state.dynamicLayer)
-        .bindPopup(`<b>${esc(row["기타 장소명"] || "직접 입력 장소")}</b>` + subCard(row, { lat, lng }));
+        .bindPopup(`<b>${esc(row["기타 장소명"] || "직접 입력 장소")}</b>${note}` + subCard(row, at));
     } else {
       unmatched.push(row);
     }
