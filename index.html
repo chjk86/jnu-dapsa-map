@@ -155,6 +155,10 @@
           창덕궁(&lt;인현왕후전&gt;·&lt;한중록&gt; 궁중문학의 배경) → 종묘(종묘제례악) → 종묘광장공원(정도전 &lt;신도가&gt; 시비)</div>
         <div class="course-item"><span class="dot" style="background:#27ae60"></span><b>3권역 — 한글가온길·덕수궁 일대</b><br>
           세종이야기(한글 창제와 현대적 활용) → 조선어학회 기념탑 → 한글가온길·주시경 마당 → 한글학회(사전 편찬의 역사) → 독립신문사 터 → 배재학당 → 덕수궁(&lt;계축일기&gt;의 배경)</div>
+        <h3>조별 등록 코스</h3>
+        <p class="gnote">우리 조가 갈 코스를 직접 등록하면 지도에 주황색 경로로 표시돼요. 답사지 이름은 '답사지' 탭과 같게 쓰고 화살표(→)로 이어 주세요. 다시 등록하면 최신 코스로 바뀝니다.</p>
+        <a class="gcta" id="courseRegBtn" href="#" target="_blank" rel="noopener" style="display:none">✏️ 우리 조 코스 등록</a>
+        <div id="teamCourses"><p class="gnote">아직 등록된 코스가 없어요.</p></div>
       </div>
 
       <div class="gtab" data-tab="poilist">
@@ -190,13 +194,16 @@ const CONFIG = {
   adminCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSyFxWkv39h7iORBlo9FJkxwtVtj96JAkf1oJqtSeXl55ViYSbX_Co2tZ92BcdbizpxnS4yftkGwXil/pub?gid=1014766971&single=true&output=csv",
   formUrl: "https://docs.google.com/forms/d/e/1FAIpQLSeMS8cNuJz6mO4ODR0IPlzok22lqqcgUwk6poNtW6nRZxvUrw/viewform",
   formEntries: { site: "entry.182142127", location: "entry.806988756" },
+  teamCourseCsvUrl: "PASTE_TEAMCOURSE_CSV_URL",
+  teamCourseFormUrl: "PASTE_TEAMCOURSE_FORM_URL",
   badgeKm: 1,
   refreshMs: 5 * 60 * 1000,
   center: [37.578, 126.977],
   zoom: 13
 };
 
-const state = { poiData: null, poiById: {}, markers: {}, courseLayers: {}, map: null, pos: null };
+const state = { poiData: null, poiById: {}, markers: {}, courseLayers: {}, map: null, pos: null,
+  teamCourses: {}, teamCourseLayer: null, shownCourseTeam: null };
 
 function initGeo() {
   if (!navigator.geolocation) return;
@@ -443,6 +450,83 @@ function loadSubmissions() {
   });
 }
 
+function normName(s) {
+  return String(s || "").toLowerCase().replace(/[\s·()·]/g, "").replace(/\(.*?\)/g, "");
+}
+
+function matchPoi(token) {
+  const t = normName(token);
+  if (!t) return null;
+  for (const p of state.poiData.pois) {
+    const full = normName(p.name);
+    const main = normName(p.name.replace(/\(.*?\)/g, ""));
+    if (full === t || main === t || full.includes(t) || t.includes(main)) return p;
+  }
+  return null;
+}
+
+function loadTeamCourses() {
+  const url = testParam("courses") || CONFIG.teamCourseCsvUrl;
+  if (url.startsWith("PASTE_")) return;
+  Papa.parse(url, {
+    download: true, header: true, skipEmptyLines: true,
+    complete: res => {
+      state.teamCourses = {};
+      for (const row of res.data) {
+        const team = (row["팀"] || "").trim();
+        const text = (row["코스"] || "").trim();
+        if (!team || !text) continue;
+        const stops = text.split(/→|->|>/).map(s => s.trim()).filter(Boolean)
+          .map(tok => ({ tok, poi: matchPoi(tok) }));
+        state.teamCourses[team] = { text, stops };
+      }
+      renderTeamCourses();
+      if (state.shownCourseTeam) showTeamCourse(state.shownCourseTeam, false);
+    },
+    error: () => {}
+  });
+}
+
+function renderTeamCourses() {
+  const el = document.getElementById("teamCourses");
+  const teams = Object.keys(state.teamCourses)
+    .sort((a, b) => a.localeCompare(b, "ko", { numeric: true }));
+  if (!teams.length) {
+    el.innerHTML = `<p class="gnote">아직 등록된 코스가 없어요. 첫 번째로 등록해 보세요!</p>`;
+    return;
+  }
+  el.innerHTML = teams.map(t => {
+    const c = state.teamCourses[t];
+    const route = c.stops.map(s =>
+      s.poi ? esc(s.tok) : `<span style="color:#b55;text-decoration:underline dotted" title="지도의 답사지와 이름이 달라 경로에서 빠져요">${esc(s.tok)}</span>`
+    ).join(" → ");
+    return `<div class="course-item"><b>${esc(t)}</b> ${route}<br>` +
+      `<button type="button" class="poi-goto" data-team="${esc(t)}">📍 지도에 코스 표시</button></div>`;
+  }).join("");
+  el.querySelectorAll("[data-team]").forEach(btn =>
+    btn.addEventListener("click", () => { showTeamCourse(btn.dataset.team, true); closeGuide(); }));
+}
+
+function showTeamCourse(team, fit) {
+  if (state.teamCourseLayer) { state.map.removeLayer(state.teamCourseLayer); state.teamCourseLayer = null; }
+  state.shownCourseTeam = null;
+  const c = state.teamCourses[team];
+  if (!c) return;
+  const pts = c.stops.filter(s => s.poi).map(s => [s.poi.lat, s.poi.lng]);
+  if (pts.length < 1) return;
+  state.shownCourseTeam = team;
+  state.teamCourseLayer = L.layerGroup().addTo(state.map);
+  if (pts.length > 1) {
+    L.polyline(pts, { color: "#e67e22", weight: 5, opacity: 0.8 }).addTo(state.teamCourseLayer);
+  }
+  pts.forEach((pt, i) => {
+    L.marker(pt, { icon: L.divIcon({ className: "", iconSize: [22, 22],
+      html: `<div style="background:#e67e22;color:#fff;border:2px solid #fff;border-radius:50%;width:22px;height:22px;text-align:center;line-height:18px;font-size:12px;font-weight:bold">${i + 1}</div>` })
+    }).addTo(state.teamCourseLayer).bindTooltip(`${team} 코스 ${i + 1}. ${c.stops.filter(s => s.poi)[i].poi.name}`);
+  });
+  if (fit) state.map.fitBounds(L.latLngBounds(pts).pad(0.25));
+}
+
 function testParam(name) {
   const v = new URLSearchParams(location.search).get(name);
   return v && /^https?:/i.test(v) ? null : v;
@@ -512,6 +596,8 @@ function applyFilters() {
   const team = document.getElementById("teamFilter").value;
   attachSubmissions(state.allRows.filter(r =>
     (!team || (r["팀"] || "").trim() === team)));
+  if (team && state.teamCourses[team]) showTeamCourse(team, false);
+  else if (!team) showTeamCourse(null, false);
 }
 document.getElementById("teamFilter").addEventListener("change", applyFilters);
 
@@ -556,9 +642,15 @@ async function boot() {
     showBanner("답사지 정보를 불러오지 못했습니다. 새로고침 해주세요.");
     return;
   }
+  if (!CONFIG.teamCourseFormUrl.startsWith("PASTE_")) {
+    const b = document.getElementById("courseRegBtn");
+    b.href = CONFIG.teamCourseFormUrl;
+    b.style.display = "block";
+  }
   loadSubmissions();
   loadAdmin();
-  setInterval(() => { loadSubmissions(); loadAdmin(); }, CONFIG.refreshMs);
+  loadTeamCourses();
+  setInterval(() => { loadSubmissions(); loadAdmin(); loadTeamCourses(); }, CONFIG.refreshMs);
 }
 boot();
 </script>
