@@ -72,8 +72,8 @@
   .sched th { background: #eef3f8; white-space: nowrap; width: 1%; }
   .gtab h3 { font-size: 13.5px; margin: 12px 0 4px; color: #1a4d7c; }
   .course-item { margin: 8px 0; }
-  #poiList details { border-bottom: 0.5px solid #e0e0e0; }
-  #poiList summary { padding: 9px 2px; cursor: pointer; font-weight: bold; list-style-position: inside; }
+  #poiList details, .busgroup { border-bottom: 0.5px solid #e0e0e0; }
+  #poiList summary, .busgroup summary { padding: 9px 2px; cursor: pointer; font-weight: bold; list-style-position: inside; }
   #poiList .poi-body { padding: 0 2px 12px; }
   #poiList .poi-works { margin: 8px 0 0; padding: 7px 10px; background: #f4f7fa; border-radius: 6px; font-size: 12.5px; }
   #poiList .poi-links a { display: inline-block; margin: 6px 8px 0 0; font-size: 12.5px; color: #1a4d7c; }
@@ -181,6 +181,35 @@
         </table>
         <h3>버스 탑승 안내</h3>
         <div id="busInfo"><p class="gnote">호차별 탑승 시간·위치는 확정되는 대로 여기에 올라와요.</p></div>
+        <h3>버스 배정</h3>
+        <p class="gnote" style="margin-top:0">호차를 누르면 명단이 펼쳐져요. <b>굵은 이름</b>이 조장이에요.</p>
+        <details class="busgroup"><summary>1호차 (36명) — 1·2·3·4조</summary>
+        <table class="sched">
+          <tr><th>임장</th><td>이준환, 한정훈, 오제욱</td></tr>
+          <tr><th>차장</th><td>23 윤채원</td></tr>
+          <tr><th>1조 (8명)</th><td><b>22 국성재</b>, 22 박준서, 24 임무겸, 24 한제승, 26 권오준, 26 문찬흠, 26 임세민, 25 PHAM HUY DAN</td></tr>
+          <tr><th>2조 (8명)</th><td><b>22 장원준</b>, 21 김민주, 23 윤채원, 26 김채련, 26 박준범, 26 배가윤, 26 황희경, 24 NGUYEN NGOC DAN VY</td></tr>
+          <tr><th>3조 (8명)</th><td><b>25 최정원</b>, 25 강서연, 25 김지민, 25 조복진, 25 최연재, 25 한가현, 25 황영화, 25 HOANG NHAT MY</td></tr>
+          <tr><th>4조 (7명)</th><td><b>22 박지민</b>, 21 문선주, 21 정지원, 26 박서연, 26 서혜원, 26 정지영, 26 조은경</td></tr>
+        </table></details>
+        <details class="busgroup"><summary>2호차 (35명) — 5·6·7·8조</summary>
+        <table class="sched">
+          <tr><th>임장</th><td>정민구, 김현정, 박예준, 박찬우</td></tr>
+          <tr><th>차장</th><td>24 김유민</td></tr>
+          <tr><th>5조 (8명)</th><td><b>24 장희원</b>, 24 김유민, 24 송정민, 24 심현채, 24 이경민, 24 이수영, 24 장윤서, 26 NGUYEN DIEU LINH</td></tr>
+          <tr><th>6조 (8명)</th><td><b>19 김태운</b>, 21 김우현, 21 조장완, 23 김다빈, 23 최민영, 26 배세연, 26 이주혁, 25 NGUYEN THI DUYEN</td></tr>
+          <tr><th>7조 (7명)</th><td><b>24 고은재</b>, 24 김하은, 24 정지인, 24 최가연, 25 박은혜, 25 서정, 24 YULDOSHEVA KHUMORA DILSHOD KIZI</td></tr>
+          <tr><th>8조 (8명)</th><td><b>20 김강현</b>, 21 박정민, 24 여휘성, 25 박승빈, 26 박효민, 26 여선경, 26 이송아, 25 TRUONG THI THANH NGAN</td></tr>
+        </table></details>
+        <details class="busgroup"><summary>3호차 (36명) — 9·10·11·12조</summary>
+        <table class="sched">
+          <tr><th>임장</th><td>최준, 백지민, 최진경, 김류인</td></tr>
+          <tr><th>차장</th><td>24 강다영</td></tr>
+          <tr><th>9조 (8명)</th><td><b>24 강여은</b>, 24 김서윤, 24 나영은, 24 장하은, 24 조원빈, 26 기나영, 26 조희영, 25 LE THI HUONG</td></tr>
+          <tr><th>10조 (8명)</th><td><b>24 박현비</b>, 24 강다영, 24 임서연, 24 임유진, 25 장소윤, 26 강에스더, 26 임나연</td></tr>
+          <tr><th>11조 (8명)</th><td><b>25 김나영</b>, 22 박소희, 22 박현희, 22 신조은, 25 김규리, 25 오시은, 25 이아현, 22 TEN OKSANA VITALEVNA</td></tr>
+          <tr><th>12조 (7명)</th><td><b>24 차유빈</b>, 20 정가은, 23 변수진, 24 김윤서, 24 나현서, 24 오세윤, 24 오윤정, 24 왕즈옌</td></tr>
+        </table></details>
       </div>
 
       <div class="gtab" data-tab="notice">
