@@ -19,7 +19,7 @@
   #topbar h1 { font-size: 15px; margin: 0; flex: 1 1 auto; }
   #submitBtn { background: #f39c12; color: #fff; text-decoration: none;
     padding: 6px 12px; border-radius: 16px; font-size: 13px; font-weight: bold; }
-  #guideBtn { background: #fff; color: #1a4d7c; border: 0; border-radius: 16px;
+  #guideBtn, #pickBtn { background: #fff; color: #1a4d7c; border: 0; border-radius: 16px;
     padding: 6px 12px; font-size: 13px; font-weight: bold; cursor: pointer; }
   #topbar select { font-size: 12px; padding: 4px; border-radius: 4px; border: 0; max-width: 28vw; }
   #map { position: absolute; top: 0; bottom: 0; width: 100%; }
@@ -38,7 +38,7 @@
   #notice span { flex: 1; }
   #notice button { border: 0; background: none; cursor: pointer; color: #866a2f; font-size: 15px; }
   .notice-item { border-bottom: 0.5px solid #ddd; padding: 7px 0; font-size: 13px; }
-  .leaflet-popup-content { font-size: 13px; max-width: 78vw; }
+  .leaflet-popup-content { font-size: 13px; max-width: 78vw; min-width: 220px; }
   .sub-card { border-top: 1px solid #ddd; margin-top: 6px; padding-top: 6px; }
   .sub-card .badge { display: inline-block; font-size: 11px; color: #fff;
     background: #27ae60; border-radius: 8px; padding: 1px 6px; margin-left: 4px; }
@@ -79,6 +79,24 @@
   #poiList .poi-links a { display: inline-block; margin: 6px 8px 0 0; font-size: 12.5px; color: #1a4d7c; }
   #poiList .poi-goto { display: inline-block; margin-top: 8px; font-size: 12.5px; font-weight: bold;
     color: #fff; background: #1a4d7c; border: 0; border-radius: 14px; padding: 5px 12px; cursor: pointer; }
+  .sub-card .txt { white-space: pre-wrap; }
+
+  /* 긴 글 전문 보기 */
+  #reader { position: fixed; inset: 0; z-index: 1300; background: rgba(0,0,0,.5);
+    display: none; align-items: center; justify-content: center; padding: 16px; }
+  #reader.open { display: flex; }
+  #readerBox { background: #fffdf8; width: 100%; max-width: 560px; max-height: 88vh;
+    border-radius: 12px; display: flex; flex-direction: column; }
+  #readerHead { display: flex; align-items: flex-start; padding: 14px 16px 8px; border-bottom: 1px solid #eee; }
+  #readerHead div { flex: 1; }
+  #readerTitle { font-size: 17px; font-weight: bold; color: #1a4d7c; }
+  #readerMeta { font-size: 12.5px; color: #666; margin-top: 2px; }
+  #readerClose { border: 0; background: none; font-size: 20px; cursor: pointer; color: #888; padding: 2px 6px; }
+  #readerBody { padding: 14px 18px 20px; overflow-y: auto; }
+  #readerText { white-space: pre-wrap; font-family: "Batang", "AppleMyungjo", serif;
+    font-size: 15.5px; line-height: 1.9; }
+  #readerNote { white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: #444;
+    margin-top: 16px; padding-top: 10px; border-top: 1px dashed #ccc; }
 </style>
 </head>
 <body>
@@ -86,6 +104,7 @@
   <h1>전남대 국문과 답사 지도</h1>
   <select id="teamFilter"><option value="">전체 팀</option></select>
   <button id="guideBtn" type="button">📖 안내</button>
+  <button id="pickBtn" type="button">📍 찍어 올리기</button>
   <a id="submitBtn" href="#" target="_blank" rel="noopener">+ 자료 올리기</a>
 </div>
 <div id="banner"></div>
@@ -186,6 +205,14 @@
   </div>
 </div>
 
+<div id="reader">
+  <div id="readerBox">
+    <div id="readerHead"><div><div id="readerTitle"></div><div id="readerMeta"></div></div>
+      <button id="readerClose" type="button" aria-label="닫기">✕</button></div>
+    <div id="readerBody"><div id="readerText"></div><div id="readerNote"></div></div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script>
@@ -247,7 +274,7 @@ function parseLoc(cell) {
 
 function verifiedBadge(row, ref) {
   const loc = parseLoc(row["위치"]);
-  if (!loc || !ref) return "";
+  if (!loc || !ref || /지도/.test(row["위치"])) return "";
   return distKm(loc, ref) <= CONFIG.badgeKm ? `<span class="badge">현장 인증 ✓</span>` : "";
 }
 
@@ -319,6 +346,82 @@ function loadPoiDocs() {
     },
     error: () => {}
   });
+}
+
+function nearestPoi(pt, maxKm) {
+  let nearest = null, best = maxKm;
+  for (const p of state.poiData.pois) {
+    const d = distKm(pt, { lat: p.lat, lng: p.lng });
+    if (d < best) { best = d; nearest = p; }
+  }
+  return nearest;
+}
+
+// 지도에서 위치 찍어 올리기: 찍은 좌표를 '위치' 칸에 "(지도)" 표시와 함께 미리 채운다
+const pick = { on: false, layer: null, bar: null, pt: null, poi: null };
+
+function pickClick(e) {
+  pick.pt = { lat: e.latlng.lat, lng: e.latlng.lng };
+  pick.poi = nearestPoi(pick.pt, 0.03);
+  if (pick.layer) state.map.removeLayer(pick.layer);
+  pick.layer = L.marker([pick.pt.lat, pick.pt.lng]).addTo(state.map);
+  document.getElementById("pickLabel").textContent = pick.poi ?
+    `답사지: ${pick.poi.name}` : "새 장소 — 폼의 '기타 장소명'에 이름을 적어 주세요";
+  document.getElementById("pickDone").disabled = false;
+}
+
+function startPick() {
+  if (pick.on || draw.on) return;
+  pick.on = true; pick.pt = null; pick.poi = null;
+  closeGuide();
+  state.map.closePopup();
+  state.map.getContainer().style.cursor = "crosshair";
+  const bar = document.createElement("div");
+  bar.style.cssText = "position:fixed;bottom:66px;left:50%;transform:translateX(-50%);z-index:1300;" +
+    "background:#1a4d7c;color:#fff;border-radius:22px;padding:8px 12px;font-size:13px;" +
+    "display:flex;gap:8px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.4);max-width:94vw";
+  bar.innerHTML = `<span id="pickLabel">자료를 올릴 곳을 지도에서 탭하세요</span>` +
+    `<button type="button" id="pickDone" disabled style="border:0;border-radius:12px;padding:4px 10px;cursor:pointer;background:#f39c12;color:#fff;font-weight:bold;white-space:nowrap">✅ 여기에 올리기</button>` +
+    `<button type="button" id="pickCancel" style="border:0;border-radius:12px;padding:4px 10px;cursor:pointer">✖</button>`;
+  document.body.appendChild(bar);
+  pick.bar = bar;
+  document.getElementById("pickCancel").addEventListener("click", endPick);
+  document.getElementById("pickDone").addEventListener("click", () => {
+    const p = new URLSearchParams({ usp: "pp_url" });
+    p.set(CONFIG.formEntries.site, pick.poi ? pick.poi.name : "기타(직접 입력)");
+    p.set(CONFIG.formEntries.location,
+      pick.pt.lat.toFixed(6) + "," + pick.pt.lng.toFixed(6) + " (지도)");
+    endPick();
+    window.open(CONFIG.formUrl + "?" + p.toString(), "_blank", "noopener");
+  });
+  state.map.on("click", pickClick);
+}
+
+function endPick() {
+  pick.on = false;
+  state.map.off("click", pickClick);
+  state.map.getContainer().style.cursor = "";
+  if (pick.layer) { state.map.removeLayer(pick.layer); pick.layer = null; }
+  if (pick.bar) { pick.bar.remove(); pick.bar = null; }
+}
+
+function openText(i) {
+  const row = (state.textRows || [])[i];
+  if (!row) return;
+  document.getElementById("readerTitle").textContent =
+    (row["기타 장소명"] || "").trim() || (row["답사지"] || "").trim() || "자료";
+  document.getElementById("readerMeta").textContent = (row["팀"] || "").trim() || "개인";
+  document.getElementById("readerText").textContent = (row["내용"] || "").trim();
+  document.getElementById("readerNote").style.display = "none";
+  document.getElementById("readerBody").scrollTop = 0;
+  document.getElementById("reader").classList.add("open");
+}
+
+function initReader() {
+  const r = document.getElementById("reader");
+  const close = () => r.classList.remove("open");
+  document.getElementById("readerClose").addEventListener("click", close);
+  r.addEventListener("click", e => { if (e.target === r) close(); });
 }
 
 function renderPoiList() {
@@ -402,8 +505,17 @@ function subCard(row, ref) {
                 `<img src="${src}" loading="lazy" alt="제출 사진" ` +
                 `onerror="this.outerHTML='<a href=&quot;${src}&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;>첨부 파일 열기</a>'"></a>`)
     .join("");
-  return `<div class="sub-card"><b>${esc(row["팀"] || "?")}</b>${verifiedBadge(row, ref)}` +
-         `<div>${esc(row["내용"] || "")}</div>${photos}</div>`;
+  // 긴 글(시·작품 등)은 앞부분만 보여 주고 [전문 보기]로 원문 창을 연다
+  const text = String(row["내용"] || "").trim();
+  const lines = text.split("\n");
+  let body = esc(text);
+  if (text.length > 200 || lines.length > 8) {
+    const i = (state.textRows = state.textRows || []).push(row) - 1;
+    const short = lines.slice(0, 8).join("\n").slice(0, 200);
+    body = esc(short) + `… <a href="#" onclick="openText(${i});return false">[전문 보기]</a>`;
+  }
+  return `<div class="sub-card"><b>${esc((row["팀"] || "").trim() || "개인")}</b>${verifiedBadge(row, ref)}` +
+         `<div class="txt">${body}</div>${photos}</div>`;
 }
 
 function buildPoiPopup(poi) {
@@ -421,9 +533,11 @@ function buildPoiPopup(poi) {
 
 function attachSubmissions(rows) {
   state.subsByPoi = {};
+  state.textRows = [];
   if (state.dynamicLayer) state.map.removeLayer(state.dynamicLayer);
   state.dynamicLayer = L.layerGroup().addTo(state.map);
   const unmatched = [];
+  const spots = {};  // 기타 장소: 같은 장소명이면 핀 하나에 모은다
   for (const row of rows) {
     const site = (row["답사지"] || "").trim();
     if (!site && !(row["팀"] || "").trim() && !(row["내용"] || "").trim()) continue;
@@ -434,16 +548,24 @@ function attachSubmissions(rows) {
       (state.subsByPoi[site] = state.subsByPoi[site] || []).push(row);
     } else if (opCoords || gps) {
       const at = opCoords || gps;
-      const note = opCoords ? "" :
-        `<div style="font-size:11px;color:#888">제출 당시 위치 기준(임시 핀) — 운영자가 좌표를 입력하면 정확한 위치로 옮겨져요</div>`;
-      L.circleMarker([at.lat, at.lng], {
-        radius: 7, color: "#fff", weight: 2,
-        fillColor: courseColor("etc"), fillOpacity: 0.95
-      }).addTo(state.dynamicLayer)
-        .bindPopup(`<b>${esc(row["기타 장소명"] || "직접 입력 장소")}</b>${note}` + subCard(row, at));
+      const name = (row["기타 장소명"] || "").trim();
+      const key = normName(name) || at.lat.toFixed(5) + "," + at.lng.toFixed(5);
+      const s = spots[key] || (spots[key] = { name, at, rows: [],
+        temp: !opCoords && !/지도/.test(row["위치"]) });
+      s.rows.push(row);
     } else {
       unmatched.push(row);
     }
+  }
+  for (const s of Object.values(spots)) {
+    const note = s.temp ?
+      `<div style="font-size:11px;color:#888">제출 당시 위치 기준(임시 핀) — 운영자가 좌표를 입력하면 정확한 위치로 옮겨져요</div>` : "";
+    L.circleMarker([s.at.lat, s.at.lng], {
+      radius: Math.min(7 + s.rows.length - 1, 14), color: "#fff", weight: 2,
+      fillColor: courseColor("etc"), fillOpacity: 0.95
+    }).addTo(state.dynamicLayer)
+      .bindPopup(`<b>${esc(s.name || "직접 입력 장소")}</b>${note}` +
+        `<div style="max-height:45vh;overflow-y:auto">${s.rows.map(r => subCard(r, s.at)).join("")}</div>`);
   }
   for (const p of state.poiData.pois) {
     state.markers[p.id].bindPopup(buildPoiPopup(p));
@@ -478,7 +600,8 @@ function loadSubmissions() {
     download: true, header: true, skipEmptyLines: true,
     complete: res => {
       showBanner("");
-      state.allRows = res.data;
+      // 운영자가 시트의 '숨김' 칸에 아무 글자나 적으면 지도에서 뺀다 (원본 행은 시트에 그대로)
+      state.allRows = res.data.filter(r => !(r["숨김"] || "").trim());
       fillTeamFilter();
       applyFilters();
     },
@@ -744,6 +867,7 @@ function initGuide() {
 async function boot() {
   initMap();
   initGuide();
+  initReader();
   initGeo();
   try {
     state.poiData = await (await fetch("poi.json")).json();
@@ -758,6 +882,7 @@ async function boot() {
     b.style.display = "block";
   }
   document.getElementById("courseDrawBtn").addEventListener("click", startDraw);
+  document.getElementById("pickBtn").addEventListener("click", startPick);
   loadSubmissions();
   loadAdmin();
   loadTeamCourses();
